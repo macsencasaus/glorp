@@ -1,10 +1,9 @@
-#include "glorp_options.h"
-
-#include "lexer.h"
-#include "parser.h"
-
 #include <stdio.h>
 #include <string.h>
+
+#include "glorp_options.h"
+#include "lexer.h"
+#include "parser.h"
 
 #define BUF_SIZE 1024
 
@@ -17,10 +16,10 @@ void start_repl(glorp_options *options) {
 
     char in[BUF_SIZE] = {0};
     char out[BUF_SIZE] = {0};
-    
+
     lexer l;
     arena a = new_arena();
-    parser p = { .a = a };
+    parser p = {.a = a};
     expression_reference program;
 
     // printing
@@ -28,7 +27,6 @@ void start_repl(glorp_options *options) {
     lexer l2;
 
     for (;;) {
-
         printf(PROMPT);
         fgets(in, sizeof(in), stdin);
 
@@ -44,11 +42,8 @@ void start_repl(glorp_options *options) {
             while (tok.type != TOKEN_TYPE_EOF) {
                 strncpy(out, tok.literal, tok.length);
                 printf("TOKEN type: %-10s literal: %-10s length: %lu\n",
-                       token_type_literals[tok.type],
-                       out,
-                       tok.length
-                );
-                
+                       token_type_literals[tok.type], out, tok.length);
+
                 tok = lexer_next_token(&l2);
                 memset(out, 0, sizeof(out));
             }

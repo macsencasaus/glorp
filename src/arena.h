@@ -7,17 +7,17 @@
 #include "object.h"
 
 typedef struct {
-  size_t size;
-  size_t capacity;
+    size_t size;
+    size_t capacity;
 
-  size_t start_idx;
-  size_t end_idx;
-  expression_reference *available;
+    size_t start_idx;
+    size_t end_idx;
+    expression_reference *available;
 
-  expression *expressions;
-  object *objects;
+    expression *expressions;
+    object *objects;
 
-  void *mem;
+    void *mem;
 } arena;
 
 arena new_arena();
@@ -30,22 +30,22 @@ expression_reference arena_alloc(arena *a, expression exp);
 expression *get_expression(arena *a, expression_reference ref);
 
 static inline expression_list new_expression_list() {
-  return (expression_list){0};
+    return (expression_list){0};
 }
 
 static inline void el_append(arena *a, expression_list *el,
                              expression_reference val) {
-  if (el->size == 0) {
-    el->head = val;
-  } else {
-    a->expressions[el->tail].next = val;
-  }
-  el->tail = val;
-  ++el->size;
+    if (el->size == 0) {
+        el->head = val;
+    } else {
+        a->expressions[el->tail].next = val;
+    }
+    el->tail = val;
+    ++el->size;
 }
 
 void print_ast(arena *a, expression_reference program);
 
 // objects
 
-#endif // ARENA_H
+#endif  // ARENA_H

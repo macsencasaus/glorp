@@ -1,7 +1,7 @@
 #include "hash_table.h"
 
-#include <string.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define MAX_LOAD_FACTOR 0.7
 

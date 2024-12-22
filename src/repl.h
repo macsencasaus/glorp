@@ -5,4 +5,4 @@
 
 void start_repl(glorp_options *options);
 
-#endif // REPL_H
+#endif  // REPL_H

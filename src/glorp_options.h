@@ -7,8 +7,8 @@
 typedef uint8_t glorp_flags;
 
 #define HELP_FLAG (1 << 0)
-#define LEX_FLAG  (1 << 1)
-#define AST_FLAG  (1 << 2)
+#define LEX_FLAG (1 << 1)
+#define AST_FLAG (1 << 2)
 #define REPL_FLAG (1 << 3)
 
 typedef struct {
@@ -20,4 +20,4 @@ typedef struct {
     glorp_flags flags;
 } glorp_options;
 
-#endif // OPTIONS_H
+#endif  // OPTIONS_H

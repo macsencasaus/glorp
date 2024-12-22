@@ -1,10 +1,10 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 
-#include "repl.h"
 #include "glorp_options.h"
+#include "repl.h"
 
 typedef struct {
     char *long_name;
@@ -24,8 +24,8 @@ static void parse_short_arg(char *arg, glorp_options *options);
 
 static const option options[] = {
     {"help", "h", "give this help"},
-    {"lex",  "l", "print lexer output"},
-    {"ast",  "a", "print ast"},
+    {"lex", "l", "print lexer output"},
+    {"ast", "a", "print ast"},
     {"repl", "r", "start interactive repl"},
     {0},
 };
@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 }
 
 static void help() {
-    static const char *const help_header = 
+    static const char *const help_header =
         "usage: %s [option] ... [file | -] [arg] ...\n"
         "repl starts if no file is specified\n"
         "\n"
@@ -58,31 +58,29 @@ static void help() {
     printf(help_header, program_name);
 
     for (size_t i = 0; *(char *)(options + i); ++i) {
-        printf("  -%s, --%-10s %s\n",
-               options[i].short_name,
-               options[i].long_name,
-               options[i].desc
-        );
+        printf("  -%s, --%-10s %s\n", options[i].short_name,
+               options[i].long_name, options[i].desc);
     }
 
     exit(0);
 }
 
 static void try_help() {
-    fprintf(stderr, "Try `%s --help` for more information.\n",
-            program_name);
+    fprintf(stderr, "Try `%s --help` for more information.\n", program_name);
     exit(1);
 }
 
 static void invalid_long_option(char *arg) {
-    const char *const invalid_long_option_message = "%s: invalid option -- '%s'\n";
+    const char *const invalid_long_option_message =
+        "%s: invalid option -- '%s'\n";
 
     fprintf(stderr, invalid_long_option_message, program_name, arg);
     try_help();
 }
 
 static void invalid_short_option(char arg) {
-    const char *const invalid_long_option_message = "%s: invalid option -- '%c'\n";
+    const char *const invalid_long_option_message =
+        "%s: invalid option -- '%c'\n";
 
     fprintf(stderr, invalid_long_option_message, program_name, arg);
     try_help();
@@ -114,8 +112,8 @@ static void parse_arguments(int argc, char *argv[], glorp_options *options) {
                     options->flags |= REPL_FLAG;
                     filename_seen = true;
                     break;
-                } 
-                
+                }
+
                 switch (arg[1]) {
                     case '-': {
                         parse_long_arg(arg, options);

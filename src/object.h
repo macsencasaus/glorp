@@ -1,8 +1,8 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 
 typedef size_t object_reference;
 
@@ -34,4 +34,4 @@ typedef struct {
     object_type type;
 } object;
 
-#endif // OBJECT_H
+#endif  // OBJECT_H

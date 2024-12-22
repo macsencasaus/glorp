@@ -26,4 +26,4 @@ void table_set(hash_table *ht, pair pair);
 
 object_reference table_get(hash_table *ht, char *key, size_t key_length);
 
-#endif // HASH_TABLE_H
+#endif  // HASH_TABLE_H

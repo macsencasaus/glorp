@@ -1,10 +1,9 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "token.h"
-#include "stdlib.h"
 #include "stdbool.h"
-#include "ast.h"
+#include "stdlib.h"
+#include "token.h"
 
 typedef struct {
     char *filename;
@@ -17,7 +16,7 @@ typedef struct {
 
     size_t line_number;
     size_t col_number;
-    
+
     char ch;
 } lexer;
 
@@ -27,4 +26,4 @@ token lexer_next_token(lexer *l);
 
 token peek_token(lexer *l);
 
-#endif // LEXER_H
+#endif  // LEXER_H
