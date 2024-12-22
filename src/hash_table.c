@@ -1,5 +1,6 @@
 #include "hash_table.h"
 
+#include <string.h>
 #include <stdbool.h>
 
 #define MAX_LOAD_FACTOR 0.7
@@ -10,7 +11,7 @@ static size_t djb2_hash(char *key, size_t key_length);
 
 void table_set(hash_table *ht, pair pair) {
     size_t hash = djb2_hash(pair.key, pair.key_length);
-    
+
     bool replace_existing = false;
     size_t idx;
     for (size_t i = 0;; ++i) {
@@ -18,7 +19,7 @@ void table_set(hash_table *ht, pair pair) {
         if (ht->values + idx == NULL) {
             break;
         }
-        
+
         if (strncmp(ht->values[idx].key, pair.key, pair.key_length) == 0) {
             replace_existing = true;
             break;
@@ -37,7 +38,7 @@ void table_set(hash_table *ht, pair pair) {
 
 object_reference table_get(hash_table *ht, char *key, size_t key_length) {
     size_t hash = djb2_hash(key, key_length);
-    
+
     size_t idx;
     for (size_t i = 0;; ++i) {
         idx = (hash + i * i) % ht->capacity;
