@@ -6,13 +6,17 @@
 
 typedef uint8_t glorp_flags;
 
-#define HELP_FLAG (1 << 0)
-#define LEX_FLAG (1 << 1)
-#define AST_FLAG (1 << 2)
-#define REPL_FLAG (1 << 3)
+// clang-format off
+#define HELP_FLAG       (1 << 0)
+#define LEX_FLAG        (1 << 1)
+#define ONLY_LEX_FLAG   (1 << 2)
+#define AST_FLAG        (1 << 3)
+#define ONLY_AST_FLAG   (1 << 4)
+#define REPL_FLAG       (1 << 5)
+// clang-format on
 
 typedef struct {
-    char *filename;
+    const char *filename;
 
     char **args;
     size_t argc;

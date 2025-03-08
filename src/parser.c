@@ -1,23 +1,26 @@
 #include "parser.h"
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
-#define BUF_SIZE 512
-#define RED_ERROR "\033[0;31merror:\033[0m"
+#include "error.h"
+
+// whether the parser is allowed to parse these infix expressions
+#define COLON_FLAG (1 << 0)
+#define TUPLE_FLAG (1 << 1)
 
 static expression_reference parse_expression(parser *p,
                                              expression_precedence precedence);
 
-static void next_token(parser *p);
+static inline void next_token(parser *p);
 static inline bool cur_token_is(parser *p, token_type tt);
 static inline bool peek_token_is(parser *p, token_type tt);
-static void expect_peek(parser *p, token_type tt);
-static inline expression_precedence peek_precedence(parser *p);
-
+static inline void expect_peek(parser *p, token_type tt);
+static inline void expect_cur(parser *p, token_type tt);
 static inline void no_prefix_parse_fn_error(parser *p, token tok);
-static void print_error_line(token tok);
+static inline expression_precedence peek_precedence(parser *p);
 
 static prefix_parse_fn parse_identifier;
 static prefix_parse_fn parse_int_literal;
@@ -110,8 +113,8 @@ static infix_parse_fn *const infix_parse_fns[TOKEN_TYPE_ENUM_LENGTH] = {
     parse_infix_expression,  // EQ
     parse_infix_expression,  // NOT EQ
 
-    NULL,                     // COMMA
-    NULL,                     // COLON
+    parse_infix_expression,   // COMMA
+    parse_infix_expression,   // COLON
     parse_assign_expression,  // COLON COLON
     NULL,                     // SEMICOLON
     parse_infix_expression,   // DOT
@@ -127,36 +130,40 @@ static infix_parse_fn *const infix_parse_fns[TOKEN_TYPE_ENUM_LENGTH] = {
     NULL,                      // RIGHT ARROW
 };
 
-parser new_parser(lexer *l) {
-    parser p = {
-        .a = new_arena(),
+void parser_init(parser *p, lexer *l, arena *a) {
+    *p = (parser) {
+        .a = a,
         .l = l,
     };
-    next_token(&p);
-    next_token(&p);
-    return p;
+    next_token(p);
+    next_token(p);
 }
 
-void reset_parser(parser *p, lexer *l) {
+void parser_reset_lexer(parser *p, lexer *l) {
     p->l = l;
     next_token(p);
     next_token(p);
 }
 
 expression_reference parse_program(parser *p) {
-    expression_list el = new_expression_list();
+    expression_reference program_ref =
+        arena_alloc_expression(p->a, (expression){0});
+    expression *program = get_expression(p->a, program_ref);
+
+    expression_list el = new_expression_list(p->a);
 
     while (!cur_token_is(p, TOKEN_TYPE_EOF)) {
-        el_append(&p->a, &el, parse_expression(p, PRECEDENCE_LOWEST));
+        el_append(&el, parse_expression(p, PRECEDENCE_LOWEST));
         if (peek_token_is(p, TOKEN_TYPE_SEMICOLON)) {
             next_token(p);
         }
         next_token(p);
     }
 
-    expression program = new_expression(EXP_TYPE_PROGRAM);
-    program.program.expressions = el;
-    return arena_alloc(&p->a, program);
+    *program = new_expression(EXP_TYPE_PROGRAM, (token){0});
+    program->program.expressions = el;
+
+    return program_ref;
 }
 
 static expression_reference parse_expression(parser *p,
@@ -169,7 +176,16 @@ static expression_reference parse_expression(parser *p,
 
     expression_reference left = prefix(p);
 
-    while (peek_precedence(p) > precedence) {
+    expression_associativity assoc = assoc_lookup[p->peek_token.type];
+    expression_precedence peek_prec = peek_precedence(p);
+
+    if (peek_prec == PRECEDENCE_STOP) {
+        return left;
+    }
+
+    bool consume_cond = (assoc == ASSOC_LEFT && peek_prec > precedence) ||
+                        (assoc == ASSOC_RIGHT && peek_prec >= precedence);
+    while (consume_cond) {
         infix_parse_fn *infix = infix_parse_fns[p->peek_token.type];
 
         if (infix == NULL) {
@@ -184,17 +200,17 @@ static expression_reference parse_expression(parser *p,
 }
 
 static expression_reference parse_identifier(parser *p) {
-    expression identifier = new_expression(EXP_TYPE_IDENTIFIER);
+    expression identifier = new_expression(EXP_TYPE_IDENTIFIER, p->cur_token);
     token tok = p->cur_token;
 
     identifier.identifier.value = tok.literal;
     identifier.identifier.length = tok.length;
 
-    return arena_alloc(&p->a, identifier);
+    return arena_alloc_expression(p->a, identifier);
 }
 
 static expression_reference parse_int_literal(parser *p) {
-    expression int_literal = new_expression(EXP_TYPE_INT_LITERAL);
+    expression int_literal = new_expression(EXP_TYPE_INT_LITERAL, p->cur_token);
 
     token tok = p->cur_token;
     int64_t value = 0;
@@ -206,13 +222,14 @@ static expression_reference parse_int_literal(parser *p) {
 
     int_literal.int_literal.value = value;
 
-    return arena_alloc(&p->a, int_literal);
+    return arena_alloc_expression(p->a, int_literal);
 }
 
 static expression_reference parse_function_literal(parser *p) {
-    expression function_literal = new_expression(EXP_TYPE_FUNCTION_LITERAL);
+    expression function_literal =
+        new_expression(EXP_TYPE_FUNCTION_LITERAL, p->cur_token);
 
-    expression_list arguments = new_expression_list();
+    expression_list arguments = new_expression_list(p->a);
 
     expect_peek(p, TOKEN_TYPE_LPAREN);
     next_token(p);
@@ -224,17 +241,13 @@ static expression_reference parse_function_literal(parser *p) {
         tok = p->cur_token;
         argument = parse_expression(p, PRECEDENCE_LOWEST);
 
-        argument_exp = get_expression(&p->a, argument);
+        argument_exp = get_expression(p->a, argument);
         if (argument_exp->type != EXP_TYPE_IDENTIFIER) {
-            fprintf(stderr,
-                    "%s:%lu:%lu: %s expected identifier for function literal "
-                    "arguments\n",
-                    p->l->filename, tok.line_number, tok.col_number, RED_ERROR);
-            print_error_line(tok);
-            exit(1);
+            generic_error(p->l->filename, tok,
+                          "expected identifier for function literal arguments");
         }
 
-        el_append(&p->a, &arguments, argument);
+        el_append(&arguments, argument);
 
         if (peek_token_is(p, TOKEN_TYPE_RPAREN)) {
             next_token(p);
@@ -253,19 +266,21 @@ static expression_reference parse_function_literal(parser *p) {
     function_literal.function_literal.arguments = arguments;
     function_literal.function_literal.body = body;
 
-    return arena_alloc(&p->a, function_literal);
+    return arena_alloc_expression(p->a, function_literal);
 }
 
 static expression_reference parse_list_literal(parser *p) {
-    expression list_literal = new_expression(EXP_TYPE_LIST_LITERAL);
+    expression list_literal =
+        new_expression(EXP_TYPE_LIST_LITERAL, p->cur_token);
 
-    expression_list values = new_expression_list();
+    expression_list values = new_expression_list(p->a);
 
     next_token(p);
 
-    // TODO: get expect peek to work
     while (!cur_token_is(p, TOKEN_TYPE_RBRACKET)) {
-        el_append(&p->a, &values, parse_expression(p, PRECEDENCE_LOWEST));
+        p->flags |= TUPLE_FLAG;
+        el_append(&values, parse_expression(p, PRECEDENCE_LOWEST));
+        p->flags &= ~TUPLE_FLAG;
 
         if (peek_token_is(p, TOKEN_TYPE_RBRACKET)) {
             next_token(p);
@@ -276,36 +291,38 @@ static expression_reference parse_list_literal(parser *p) {
         next_token(p);
     }
 
-    // expect_peek(p, TOKEN_TYPE_RBRACKET);
+    expect_cur(p, TOKEN_TYPE_RBRACKET);
 
     list_literal.list_literal.values = values;
 
-    return arena_alloc(&p->a, list_literal);
+    return arena_alloc_expression(p->a, list_literal);
 }
 
 static expression_reference parse_block_expression(parser *p) {
-    expression block_expression = new_expression(EXP_TYPE_BLOCK_EXPRESSION);
+    expression block_expression =
+        new_expression(EXP_TYPE_BLOCK_EXPRESSION, p->cur_token);
 
-    expression_list expressions = new_expression_list();
+    expression_list expressions = new_expression_list(p->a);
 
     next_token(p);
     while (!cur_token_is(p, TOKEN_TYPE_RBRACE)) {
-        el_append(&p->a, &expressions, parse_expression(p, PRECEDENCE_LOWEST));
+        el_append(&expressions, parse_expression(p, PRECEDENCE_LOWEST));
         if (peek_token_is(p, TOKEN_TYPE_SEMICOLON)) {
             next_token(p);
         }
         next_token(p);
     }
 
-    // expect_peek(p, TOKEN_TYPE_RBRACE);
+    expect_cur(p, TOKEN_TYPE_RBRACE);
 
     block_expression.block_expression.expressions = expressions;
 
-    return arena_alloc(&p->a, block_expression);
+    return arena_alloc_expression(p->a, block_expression);
 }
 
 static expression_reference parse_prefix_expression(parser *p) {
-    expression prefix_expression = new_expression(EXP_TYPE_PREFIX_EXPRESSION);
+    expression prefix_expression =
+        new_expression(EXP_TYPE_PREFIX_EXPRESSION, p->cur_token);
 
     token op = p->cur_token;
     next_token(p);
@@ -315,22 +332,25 @@ static expression_reference parse_prefix_expression(parser *p) {
     prefix_expression.prefix_expression.right = right;
     prefix_expression.prefix_expression.op = op;
 
-    return arena_alloc(&p->a, prefix_expression);
+    return arena_alloc_expression(p->a, prefix_expression);
 }
 
 static expression_reference parse_group_expression(parser *p) {
+    parser_flags old_flags = p->flags;
+    p->flags = 0;
+
     next_token(p);
-
     expression_reference exp = parse_expression(p, PRECEDENCE_LOWEST);
-
     expect_peek(p, TOKEN_TYPE_RPAREN);
 
+    p->flags = old_flags;
     return exp;
 }
 
 static expression_reference parse_assign_expression(parser *p,
                                                     expression_reference left) {
-    expression assign_expression = new_expression(EXP_TYPE_ASSIGN_EXPRESSION);
+    expression assign_expression =
+        new_expression(EXP_TYPE_ASSIGN_EXPRESSION, p->cur_token);
 
     if (cur_token_is(p, TOKEN_TYPE_COLON_COLON)) {
         assign_expression.assign_expression.constant = true;
@@ -342,12 +362,13 @@ static expression_reference parse_assign_expression(parser *p,
     assign_expression.assign_expression.right =
         parse_expression(p, PRECEDENCE_ASSIGN);
 
-    return arena_alloc(&p->a, assign_expression);
+    return arena_alloc_expression(p->a, assign_expression);
 }
 
 static expression_reference parse_infix_expression(parser *p,
                                                    expression_reference left) {
-    expression infix_expression = new_expression(EXP_TYPE_INFIX_EXPRESSION);
+    expression infix_expression =
+        new_expression(EXP_TYPE_INFIX_EXPRESSION, p->cur_token);
 
     token op = p->cur_token;
 
@@ -359,18 +380,22 @@ static expression_reference parse_infix_expression(parser *p,
     expression_precedence precedence = precedence_lookup[op.type];
     infix_expression.infix_expression.right = parse_expression(p, precedence);
 
-    return arena_alloc(&p->a, infix_expression);
+    return arena_alloc_expression(p->a, infix_expression);
 }
 
 static expression_reference parse_ternary_expression(
     parser *p, expression_reference left) {
-    expression ternary_expression = new_expression(EXP_TYPE_TERNARY_EXPRESSION);
+    expression ternary_expression =
+        new_expression(EXP_TYPE_TERNARY_EXPRESSION, p->cur_token);
 
     next_token(p);
 
     ternary_expression.ternary_expression.condition = left;
+
+    p->flags |= COLON_FLAG;
     ternary_expression.ternary_expression.consequence =
-        parse_expression(p, PRECEDENCE_TERNARY);
+        parse_expression(p, PRECEDENCE_LOWEST);
+    p->flags &= ~COLON_FLAG;
 
     expect_peek(p, TOKEN_TYPE_COLON);
 
@@ -379,20 +404,21 @@ static expression_reference parse_ternary_expression(
     ternary_expression.ternary_expression.alternative =
         parse_expression(p, PRECEDENCE_LOWEST);
 
-    return arena_alloc(&p->a, ternary_expression);
+    return arena_alloc_expression(p->a, ternary_expression);
 }
 
 static expression_reference parse_call_expression(parser *p,
                                                   expression_reference left) {
-    expression call_expression = new_expression(EXP_TYPE_CALL_EXPRESSION);
-    expression_list arguments = new_expression_list();
+    expression call_expression =
+        new_expression(EXP_TYPE_CALL_EXPRESSION, p->cur_token);
+    expression_list arguments = new_expression_list(p->a);
 
     call_expression.call_expression.function = left;
 
     next_token(p);
 
     while (!cur_token_is(p, TOKEN_TYPE_RPAREN)) {
-        el_append(&p->a, &arguments, parse_expression(p, PRECEDENCE_LOWEST));
+        el_append(&arguments, parse_expression(p, PRECEDENCE_LOWEST));
 
         if (peek_token_is(p, TOKEN_TYPE_RPAREN)) {
             next_token(p);
@@ -403,16 +429,17 @@ static expression_reference parse_call_expression(parser *p,
         next_token(p);
     }
 
-    // expect_peek(p, TOKEN_TYPE_RPAREN);
+    expect_cur(p, TOKEN_TYPE_RPAREN);
 
     call_expression.call_expression.arguments = arguments;
 
-    return arena_alloc(&p->a, call_expression);
+    return arena_alloc_expression(p->a, call_expression);
 }
 
 static expression_reference parse_index_expression(parser *p,
                                                    expression_reference left) {
-    expression index_expression = new_expression(EXP_TYPE_INDEX_EXPRESSION);
+    expression index_expression =
+        new_expression(EXP_TYPE_INDEX_EXPRESSION, p->cur_token);
 
     index_expression.index_expression.list = left;
 
@@ -424,10 +451,10 @@ static expression_reference parse_index_expression(parser *p,
 
     index_expression.index_expression.index = index;
 
-    return arena_alloc(&p->a, index_expression);
+    return arena_alloc_expression(p->a, index_expression);
 }
 
-static void next_token(parser *p) {
+static inline void next_token(parser *p) {
     p->cur_token = p->peek_token;
     p->peek_token = lexer_next_token(p->l);
 }
@@ -440,51 +467,26 @@ static inline bool peek_token_is(parser *p, token_type tt) {
     return p->peek_token.type == tt;
 }
 
-static void expect_peek(parser *p, token_type tt) {
-    if (peek_token_is(p, tt)) {
-        next_token(p);
-        return;
-    }
+static inline void expect_peek(parser *p, token_type tt) {
+    match_token_type_error(p->l->filename, p->peek_token, tt);
+    next_token(p);
+}
 
-    token peek_token = p->peek_token;
-
-    fprintf(stderr, "%s:%lu:%lu: %s expected %s\n", p->l->filename,
-            peek_token.line_number, peek_token.col_number, RED_ERROR,
-            token_type_literals[tt]);
-
-    print_error_line(peek_token);
-
-    exit(1);
+static inline void expect_cur(parser *p, token_type tt) {
+    match_token_type_error(p->l->filename, p->cur_token, tt);
 }
 
 static inline expression_precedence peek_precedence(parser *p) {
+    if ((p->flags & COLON_FLAG) && (p->peek_token.type == TOKEN_TYPE_COLON)) {
+        return PRECEDENCE_STOP;
+    }
+    if ((p->flags & TUPLE_FLAG) && (p->peek_token.type == TOKEN_TYPE_COMMA)) {
+        return PRECEDENCE_STOP;
+    }
     return precedence_lookup[p->peek_token.type];
 }
 
 static inline void no_prefix_parse_fn_error(parser *p, token tok) {
-    fprintf(stderr, "%s:%lu:%lu: %s no prefix parse function for %s\n",
-            p->l->filename, tok.line_number, tok.col_number, RED_ERROR,
-            token_type_literals[tok.type]);
-    print_error_line(tok);
+    unexpected_token_error(p->l->filename, tok);
     exit(1);
-}
-
-// TODO: fix error message
-static void print_error_line(token tok) {
-    const char *RED_START = "\033[0;31m";
-    const char *RED_END = "\033[0m";
-
-    char *line = tok.literal - tok.col_number + 1;
-
-    size_t line_length;
-    for (char *p = line; *p != '\n'; ++p) ++line_length;
-
-    char line_buf[line_length + 1];
-
-    line_buf[line_length] = 0;
-
-    strncpy(line_buf, line, line_length);
-
-    printf("%4lu | %s\n", tok.line_number, line_buf);
-    printf("     | %s%*c%s\n", RED_START, (int)tok.col_number, '^', RED_END);
 }

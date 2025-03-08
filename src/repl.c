@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "evaluator.h"
 #include "glorp_options.h"
 #include "lexer.h"
 #include "parser.h"
@@ -15,48 +16,51 @@ void start_repl(glorp_options *options) {
     printf("Welcome to glorp!\n");
 
     char in[BUF_SIZE] = {0};
-    char out[BUF_SIZE] = {0};
 
     lexer l;
-    arena a = new_arena();
-    parser p = {.a = a};
+
+    arena a;
+    arena_init(&a);
+
+    parser p = {.a = &a};
+
     expression_reference program;
 
-    // printing
-    token tok;
-    lexer l2;
+    environment env;
+    environment_init(&env, p.a, NULL);
 
     for (;;) {
+        memset(in, 0, sizeof(in));
+        arena_clear_expressions(p.a);
+
         printf(PROMPT);
         fgets(in, sizeof(in), stdin);
 
-        if (strncmp(in, QUIT, 2) == 0) {
+        if (strncmp(in, QUIT, sizeof(QUIT) - 1) == 0) {
             break;
         }
 
-        l = new_lexer(REPL_FILENAME, in, strlen(in));
+        lexer_init(&l, REPL_FILENAME, in, sizeof(in));
 
         if (options->flags & LEX_FLAG) {
-            l2 = new_lexer(REPL_FILENAME, in, strlen(in));
-            tok = lexer_next_token(&l2);
-            while (tok.type != TOKEN_TYPE_EOF) {
-                strncpy(out, tok.literal, tok.length);
-                printf("TOKEN type: %-10s literal: %-10s length: %lu\n",
-                       token_type_literals[tok.type], out, tok.length);
-
-                tok = lexer_next_token(&l2);
-                memset(out, 0, sizeof(out));
-            }
+            print_lexer_output(REPL_FILENAME, in, sizeof(in));
         }
+        if (options->flags & ONLY_LEX_FLAG) continue;
 
-        reset_parser(&p, &l);
+        parser_reset_lexer(&p, &l);
 
         program = parse_program(&p);
 
         if (options->flags & AST_FLAG) {
-            print_ast(&a, program);
+            print_ast(p.a, program);
         }
+        if (options->flags & ONLY_AST_FLAG) continue;
 
-        memset(in, 0, sizeof(in));
+        object obj = eval(program, &env);
+        inspect(&obj);
+
+#ifdef DEBUG
+        print_debug_info(p.a);
+#endif  // DEBUG
     }
 }

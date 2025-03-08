@@ -1,7 +1,11 @@
 #include "lexer.h"
 
+#include <string.h>
+
+#include "stdio.h"
 #include "stdlib.h"
 
+static void read_comment(lexer *l);
 static void read_char(lexer *l);
 static char peek_char(lexer *l);
 
@@ -12,23 +16,23 @@ static inline bool is_valid_starting_ident_char(char c);
 static inline bool is_digit(char c);
 static inline bool is_whitespace(char c);
 
-lexer new_lexer(char *filename, char *input, size_t n) {
-    lexer l = {
+void lexer_init(lexer *l, const char *filename, const char *input, size_t n) {
+    *l = (lexer){
         .filename = filename,
         .input = input,
         .input_length = n,
-
         .line_number = 1,
     };
 
-    read_char(&l);
-    // read_char(&l);
-
-    return l;
+    read_char(l);
 }
 
 token lexer_next_token(lexer *l) {
     eat_whitespace(l);
+
+    if (l->ch == '#') {
+        read_comment(l);
+    }
 
     token tok = {
         .literal = l->input + l->position,
@@ -169,6 +173,25 @@ token lexer_next_token(lexer *l) {
 
     read_char(l);
     return tok;
+}
+
+void print_lexer_output(const char *filename, const char *input, size_t n) {
+    lexer l;
+    lexer_init(&l, filename, input, n);
+
+    token tok = lexer_next_token(&l);
+    while (tok.type != TOKEN_TYPE_EOF) {
+        printf("TOKEN type: %-10s literal: %-10.*s length: %lu\n",
+               token_type_literals[tok.type], (int)tok.length, tok.literal,
+               tok.length);
+
+        tok = lexer_next_token(&l);
+    }
+}
+
+static void read_comment(lexer *l) {
+    for (; l->ch != '\n' && l->ch != 0 && l->ch != EOF; read_char(l));
+    eat_whitespace(l);
 }
 
 static void read_char(lexer *l) {

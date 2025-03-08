@@ -6,9 +6,9 @@
 #include "token.h"
 
 typedef struct {
-    char *filename;
+    const char *filename;
 
-    char *input;
+    const char *input;
     size_t input_length;
 
     size_t position;
@@ -20,10 +20,8 @@ typedef struct {
     char ch;
 } lexer;
 
-lexer new_lexer(char *filename, char *input, size_t n);
-
+void lexer_init(lexer *l, const char *filename, const char *input, size_t n);
 token lexer_next_token(lexer *l);
-
-token peek_token(lexer *l);
+void print_lexer_output(const char *filename, const char *input, size_t n);
 
 #endif  // LEXER_H

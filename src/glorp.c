@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "glorp_options.h"
+#include "interpreter.h"
 #include "repl.h"
 
 typedef struct {
@@ -14,18 +15,21 @@ typedef struct {
 
 static char *program_name;
 
-static void help();
-static void try_help();
+static void help(void);
+static void try_help(void);
 static void invalid_long_option(char *arg);
 static void invalid_short_option(char arg);
 static void parse_arguments(int argc, char *argv[], glorp_options *options);
 static void parse_long_arg(char *arg, glorp_options *options);
 static void parse_short_arg(char *arg, glorp_options *options);
+static char *read_file(glorp_options *options);
 
 static const option options[] = {
     {"help", "h", "give this help"},
     {"lex", "l", "print lexer output"},
+    {"only-lex", "", "process up to lexer"},
     {"ast", "a", "print ast"},
+    {"only-ast", "", "process up to ast"},
     {"repl", "r", "start interactive repl"},
     {0},
 };
@@ -43,12 +47,19 @@ int main(int argc, char *argv[]) {
 
     if (options.flags & REPL_FLAG) {
         start_repl(&options);
+        return 0;
     }
+
+    char *input = read_file(&options);
+
+    interpret(input, &options);
+
+    free(input);
 
     return 0;
 }
 
-static void help() {
+static void help(void) {
     static const char *const help_header =
         "usage: %s [option] ... [file | -] [arg] ...\n"
         "repl starts if no file is specified\n"
@@ -58,6 +69,10 @@ static void help() {
     printf(help_header, program_name);
 
     for (size_t i = 0; *(char *)(options + i); ++i) {
+        if (*options[i].short_name == 0) {
+            printf("      --%-10s %s\n", options[i].long_name, options[i].desc);
+            continue;
+        }
         printf("  -%s, --%-10s %s\n", options[i].short_name,
                options[i].long_name, options[i].desc);
     }
@@ -65,7 +80,7 @@ static void help() {
     exit(0);
 }
 
-static void try_help() {
+static void try_help(void) {
     fprintf(stderr, "Try `%s --help` for more information.\n", program_name);
     exit(1);
 }
@@ -131,7 +146,6 @@ static void parse_arguments(int argc, char *argv[], glorp_options *options) {
                     options->args = argv + i;
                     options->argc = (size_t)(argc - i);
                     leave_loop = true;
-                    leave_loop = true;
                 }
             } break;
         }
@@ -152,8 +166,12 @@ static void parse_long_arg(char *arg, glorp_options *options) {
         options->flags |= HELP_FLAG;
     } else if (strcmp(arg, "lex") == 0) {
         options->flags |= LEX_FLAG;
+    } else if (strcmp(arg, "only-lex") == 0) {
+        options->flags |= ONLY_LEX_FLAG;
     } else if (strcmp(arg, "ast") == 0) {
         options->flags |= AST_FLAG;
+    } else if (strcmp(arg, "only-ast") == 0) {
+        options->flags |= ONLY_AST_FLAG;
     } else if (strcmp(arg, "repl") == 0) {
         options->flags |= REPL_FLAG;
     } else {
@@ -181,4 +199,35 @@ static void parse_short_arg(char *arg, glorp_options *options) {
             } break;
         }
     }
+}
+
+static char *read_file(glorp_options *options) {
+    const char *filename = options->filename;
+
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        fprintf(stderr, "%s: %s: No such file or directory\n", program_name,
+                filename);
+        exit(1);
+    }
+
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file);
+
+    char *buffer = (char *)malloc(file_size + 1);
+
+    size_t bytes_read = fread(buffer, 1, file_size, file);
+    if ((long)bytes_read != file_size) {
+        fprintf(stderr, "%s: %s: Failed to read file\n", program_name,
+                filename);
+        free(buffer);
+        fclose(file);
+        exit(1);
+    }
+
+    buffer[file_size] = 0;
+
+    fclose(file);
+    return buffer;
 }

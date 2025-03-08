@@ -9,6 +9,7 @@
 
 typedef struct expression_list expression_list;
 typedef struct expression expression;
+typedef struct arena arena;
 
 // just the index into the arena
 typedef size_t expression_reference;
@@ -17,7 +18,15 @@ struct expression_list {
     expression_reference head;
     expression_reference tail;
     size_t size;
+
+    arena *a;
 };
+
+typedef struct {
+    expression_reference ref;
+    expression *exp;
+    expression_list *el;
+} expression_list_iterator;
 
 typedef enum {
     EXP_TYPE_PROGRAM,
@@ -43,7 +52,7 @@ typedef struct {
 } program;
 
 typedef struct {
-    char *value;
+    const char *value;
     size_t length;
 } identifier;
 
@@ -99,6 +108,7 @@ typedef struct {
 } index_expression;
 
 struct expression {
+    token token;
     expression_reference next;  // only used in expression list
     expression_type type;
     union {
@@ -119,11 +129,16 @@ struct expression {
     };
 };
 
-static inline expression new_expression(expression_type et) {
-    return (expression){
-        .next = 0,
-        .type = et,
-    };
-}
+expression new_expression(expression_type et, token token);
+
+void print_ast(arena *a, expression_reference program);
+
+expression_list new_expression_list(arena *a);
+void el_append(expression_list *el, expression_reference ref);
+expression_list_iterator el_start(expression_list *el);
+expression_list_iterator el_end(expression_list *el);
+
+void eli_next(expression_list_iterator *eli);
+bool eli_eq(expression_list_iterator *a, expression_list_iterator *b);
 
 #endif  // AST_H

@@ -24,14 +24,14 @@ typedef enum {
     TOKEN_TYPE_PLUS_PLUS,    // ++
     TOKEN_TYPE_MINUS_MINUS,  // --
 
-    TOKEN_TYPE_BACK_SLASH,  // \
+    TOKEN_TYPE_BACK_SLASH, /* \ */
 
-    TOKEN_TYPE_LT,          // <
-    TOKEN_TYPE_GT,          // >
-    TOKEN_TYPE_LT_EQ,       // <=
-    TOKEN_TYPE_GT_EQ,       // >=
-    TOKEN_TYPE_EQ,          // ==
-    TOKEN_TYPE_NOT_EQ,      // !=
+    TOKEN_TYPE_LT,      // <
+    TOKEN_TYPE_GT,      // >
+    TOKEN_TYPE_LT_EQ,   // <=
+    TOKEN_TYPE_GT_EQ,   // >=
+    TOKEN_TYPE_EQ,      // ==
+    TOKEN_TYPE_NOT_EQ,  // !=
 
     // Delimiters
     TOKEN_TYPE_COMMA,        // ,
@@ -56,7 +56,7 @@ typedef enum {
 typedef struct {
     token_type type;
 
-    char *literal;
+    const char *literal;
     size_t length;
 
     size_t line_number;
@@ -64,14 +64,14 @@ typedef struct {
 } token;
 
 // clang-format off
-static char *token_type_literals[TOKEN_TYPE_ENUM_LENGTH] = {
+static const char *const token_type_literals[TOKEN_TYPE_ENUM_LENGTH] = {
     "ILLEGAL", 
     "EOF",
-    "IDENT",
-    "CHAR",
-    "INT",
-    "FLOAT",
-    "STRING",
+    "identifier",
+    "char",
+    "int",
+    "float",
+    "string",
     "'='",
     "'+'",
     "'-'",
