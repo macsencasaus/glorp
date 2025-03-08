@@ -16,7 +16,6 @@ static print_expression_fn print_program;
 
 static print_expression_fn print_identifier;
 static print_expression_fn print_int_literal;
-static print_expression_fn print_function_literal;
 static print_expression_fn print_list_literal;
 
 static print_expression_fn print_block_expression;
@@ -35,7 +34,6 @@ static print_expression_fn *print_expression_fns[EXP_ENUM_LENGTH] = {
 
     print_identifier,
     print_int_literal,
-    print_function_literal,
     print_list_literal,
 
     print_block_expression,
@@ -55,7 +53,6 @@ expression new_expression(expression_type et, token token) {
         .type = et,
     };
 }
-
 
 void print_ast(arena *a, expression_reference program) {
     print_expression(a, program, 0);
@@ -96,30 +93,6 @@ static void print_int_literal(arena *a, expression_reference ref,
     int64_t value = int_literal->int_literal.value;
 
     printf(INDENT_FMT "%s %ld\n", INDENT, "INT LITERAL", value);
-}
-
-static void print_function_literal(arena *a, expression_reference ref,
-                                   size_t indent) {
-    expression *function_literal = get_expression(a, ref);
-
-    printf(INDENT_FMT "%s\n", INDENT, "FUNCTION LITERAL");
-    ++indent;
-
-    expression_list arguments = function_literal->function_literal.arguments;
-
-    printf(INDENT_FMT "%s(%ld):\n", INDENT, "ARGUMENTS", arguments.size);
-    ++indent;
-
-    print_expression_list(a, arguments, indent);
-
-    --indent;
-
-    printf(INDENT_FMT "%s:\n", INDENT, "BODY");
-    ++indent;
-
-    expression_reference body = function_literal->function_literal.body;
-
-    print_expression(a, body, indent);
 }
 
 static void print_list_literal(arena *a, expression_reference ref,

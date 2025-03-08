@@ -89,9 +89,6 @@ token lexer_next_token(lexer *l) {
                 tok.type = TOKEN_TYPE_BANG;
             }
         } break;
-        case '\\': {
-            tok.type = TOKEN_TYPE_BACK_SLASH;
-        } break;
         case '>': {
             if (peek_char(l) == '=') {
                 tok.type = TOKEN_TYPE_GT_EQ;

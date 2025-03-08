@@ -32,7 +32,6 @@ eval_fn *eval_fns[EXP_ENUM_LENGTH] = {
     eval_program,
     eval_identifier,
     eval_int_literal,
-    eval_function_literal,
     eval_list_literal,
     eval_block_expression,
     eval_prefix_expression,
@@ -93,19 +92,6 @@ static object eval_int_literal(expression_reference ref, environment *env) {
 
     object obj = new_object(OBJECT_TYPE_INT);
     obj.int_object.value = exp->int_literal.value;
-
-    return obj;
-}
-
-static object eval_function_literal(expression_reference ref,
-                                    environment *env) {
-    arena *a = env->a;
-    expression *exp = get_expression(a, ref);
-    object obj = new_object(OBJECT_TYPE_FUNCTION);
-
-    obj.function_object.arguments = exp->function_literal.arguments;
-    obj.function_object.body = exp->function_literal.body;
-    /* obj.function_object.env = new_environment(a, env); */
 
     return obj;
 }

@@ -164,11 +164,9 @@ object *get_object(arena *a, object_reference ref) { return a->objects + ref; }
 #ifdef DEBUG
 
 static const char *const expression_type_literals[EXP_ENUM_LENGTH] = {
-    "PROGRAM",           "IDENTIFIER",
-    "INT LITERAL",       "FUNCTION LITERAL",
-    "LIST LITERAL",      "BLOCK EXPRESSION",
-    "PREFIX EXPRESSION", "ASSIGN EXPRESSION",
-    "INFIX EXPRESSION",  "TERNARY EXPRESSION",
+    "PROGRAM",           "IDENTIFIER",       "INT LITERAL",
+    "LIST LITERAL",      "BLOCK EXPRESSION", "PREFIX EXPRESSION",
+    "ASSIGN EXPRESSION", "INFIX EXPRESSION", "TERNARY EXPRESSION",
     "CALL EXPRESSION",   "INDEX EXPRESSION",
 };
 

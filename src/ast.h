@@ -33,7 +33,6 @@ typedef enum {
 
     EXP_TYPE_IDENTIFIER,
     EXP_TYPE_INT_LITERAL,
-    EXP_TYPE_FUNCTION_LITERAL,
     EXP_TYPE_LIST_LITERAL,
 
     EXP_TYPE_BLOCK_EXPRESSION,
@@ -59,12 +58,6 @@ typedef struct {
 typedef struct {
     int64_t value;
 } int_literal;
-
-typedef struct {
-    // must be identifiers
-    expression_list arguments;
-    expression_reference body;
-} function_literal;
 
 typedef struct {
     expression_list values;

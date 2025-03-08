@@ -24,7 +24,6 @@ static inline expression_precedence peek_precedence(parser *p);
 
 static prefix_parse_fn parse_identifier;
 static prefix_parse_fn parse_int_literal;
-static prefix_parse_fn parse_function_literal;
 static prefix_parse_fn parse_list_literal;
 
 static prefix_parse_fn parse_block_expression;
@@ -56,8 +55,6 @@ static prefix_parse_fn *const prefix_parse_fns[TOKEN_TYPE_ENUM_LENGTH] = {
 
     parse_prefix_expression,  // PLUS PLUS
     parse_prefix_expression,  // MINUS MINUS
-
-    parse_function_literal,  // BACK SLASH
 
     NULL,  // LT
     NULL,  // GT
@@ -104,8 +101,6 @@ static infix_parse_fn *const infix_parse_fns[TOKEN_TYPE_ENUM_LENGTH] = {
     parse_infix_expression,  // PLUS PLUS
     NULL,                    // MINUS MINUS
 
-    NULL,  // BACK SLASH
-
     parse_infix_expression,  // LT
     parse_infix_expression,  // GT
     parse_infix_expression,  // LT EQ
@@ -127,11 +122,11 @@ static infix_parse_fn *const infix_parse_fns[TOKEN_TYPE_ENUM_LENGTH] = {
     NULL,                    // RBRACKET
 
     parse_ternary_expression,  // QUESTION
-    NULL,                      // RIGHT ARROW
+    parse_infix_expression,    // RIGHT ARROW
 };
 
 void parser_init(parser *p, lexer *l, arena *a) {
-    *p = (parser) {
+    *p = (parser){
         .a = a,
         .l = l,
     };
@@ -225,50 +220,6 @@ static expression_reference parse_int_literal(parser *p) {
     return arena_alloc_expression(p->a, int_literal);
 }
 
-static expression_reference parse_function_literal(parser *p) {
-    expression function_literal =
-        new_expression(EXP_TYPE_FUNCTION_LITERAL, p->cur_token);
-
-    expression_list arguments = new_expression_list(p->a);
-
-    expect_peek(p, TOKEN_TYPE_LPAREN);
-    next_token(p);
-
-    token tok;
-    expression_reference argument;
-    expression *argument_exp;
-    while (!cur_token_is(p, TOKEN_TYPE_RPAREN)) {
-        tok = p->cur_token;
-        argument = parse_expression(p, PRECEDENCE_LOWEST);
-
-        argument_exp = get_expression(p->a, argument);
-        if (argument_exp->type != EXP_TYPE_IDENTIFIER) {
-            generic_error(p->l->filename, tok,
-                          "expected identifier for function literal arguments");
-        }
-
-        el_append(&arguments, argument);
-
-        if (peek_token_is(p, TOKEN_TYPE_RPAREN)) {
-            next_token(p);
-            break;
-        }
-
-        expect_peek(p, TOKEN_TYPE_COMMA);
-        next_token(p);
-    }
-
-    expect_peek(p, TOKEN_TYPE_RIGHT_ARROW);
-    next_token(p);
-
-    expression_reference body = parse_expression(p, PRECEDENCE_LOWEST);
-
-    function_literal.function_literal.arguments = arguments;
-    function_literal.function_literal.body = body;
-
-    return arena_alloc_expression(p->a, function_literal);
-}
-
 static expression_reference parse_list_literal(parser *p) {
     expression list_literal =
         new_expression(EXP_TYPE_LIST_LITERAL, p->cur_token);
@@ -299,6 +250,9 @@ static expression_reference parse_list_literal(parser *p) {
 }
 
 static expression_reference parse_block_expression(parser *p) {
+    parser_flags old_flags = p->flags;
+    p->flags = 0;
+
     expression block_expression =
         new_expression(EXP_TYPE_BLOCK_EXPRESSION, p->cur_token);
 
@@ -317,6 +271,7 @@ static expression_reference parse_block_expression(parser *p) {
 
     block_expression.block_expression.expressions = expressions;
 
+    p->flags = old_flags;
     return arena_alloc_expression(p->a, block_expression);
 }
 

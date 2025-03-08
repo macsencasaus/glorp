@@ -24,8 +24,6 @@ typedef enum {
     TOKEN_TYPE_PLUS_PLUS,    // ++
     TOKEN_TYPE_MINUS_MINUS,  // --
 
-    TOKEN_TYPE_BACK_SLASH, /* \ */
-
     TOKEN_TYPE_LT,      // <
     TOKEN_TYPE_GT,      // >
     TOKEN_TYPE_LT_EQ,   // <=
@@ -81,7 +79,6 @@ static const char *const token_type_literals[TOKEN_TYPE_ENUM_LENGTH] = {
     "'%'",
     "'++'",
     "'--'",
-    "'\\'",
     "'<'",
     "'>'",
     "'<='",

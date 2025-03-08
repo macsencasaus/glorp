@@ -26,6 +26,7 @@ typedef enum {
     PRECEDENCE_STOP,
     PRECEDENCE_LOWEST,
     PRECEDENCE_ASSIGN,
+    PRECEDENCE_FUNCTION,
     PRECEDENCE_TUPLE,
     PRECEDENCE_TERNARY,
     PRECEDENCE_EQUALS,
@@ -72,8 +73,6 @@ static const expression_precedence precedence_lookup[TOKEN_TYPE_ENUM_LENGTH] = {
     PRECEDENCE_APPEND,  // PLUS PLUS
     PRECEDENCE_LOWEST,  // MINUS MINUS
 
-    PRECEDENCE_LOWEST,  // BACK SLASH
-
     PRECEDENCE_EQUALS,  // LT
     PRECEDENCE_EQUALS,  // GT
     PRECEDENCE_EQUALS,  // LT EQ
@@ -94,8 +93,8 @@ static const expression_precedence precedence_lookup[TOKEN_TYPE_ENUM_LENGTH] = {
     PRECEDENCE_INDEX,   // LBRACKET
     PRECEDENCE_LOWEST,  // RBRACKET
 
-    PRECEDENCE_TERNARY,  // QUESTION
-    PRECEDENCE_LOWEST,   // RIGHT ARROW
+    PRECEDENCE_TERNARY,   // QUESTION
+    PRECEDENCE_FUNCTION,  // RIGHT ARROW
 };
 
 static const expression_associativity assoc_lookup[TOKEN_TYPE_ENUM_LENGTH] = {
@@ -119,8 +118,6 @@ static const expression_associativity assoc_lookup[TOKEN_TYPE_ENUM_LENGTH] = {
     ASSOC_LEFT,  // PLUS PLUS
     ASSOC_NONE,  // MINUS MINUS
 
-    ASSOC_NONE,  // BACK SLASH
-
     ASSOC_LEFT,  // LT
     ASSOC_LEFT,  // GT
     ASSOC_LEFT,  // LT EQ
@@ -141,8 +138,8 @@ static const expression_associativity assoc_lookup[TOKEN_TYPE_ENUM_LENGTH] = {
     ASSOC_LEFT,  // LBRACKET
     ASSOC_NONE,  // RBRACKET
 
-    ASSOC_LEFT,  // QUESTION
-    ASSOC_NONE,  // RIGHT ARROW
+    ASSOC_LEFT,   // QUESTION
+    ASSOC_RIGHT,  // RIGHT ARROW
 };
 
 #endif  // PARSER_H
