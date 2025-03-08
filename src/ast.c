@@ -294,27 +294,25 @@ void el_append(expression_list *el, expression_reference ref) {
     ++el->size;
 }
 
-expression_list_iterator el_start(expression_list *el) {
-    return (expression_list_iterator){
+el_iterator el_start(expression_list *el) {
+    return (el_iterator){
         .ref = el->head,
         .exp = get_expression(el->a, el->head),
         .el = el,
     };
 }
 
-expression_list_iterator el_end(expression_list *el) {
-    return (expression_list_iterator) {
+el_iterator el_end(expression_list *el) {
+    return (el_iterator){
         .ref = 0,
-        .exp = NULL, 
+        .exp = NULL,
         .el = el,
     };
 }
 
-void eli_next(expression_list_iterator *eli) {
+void eli_next(el_iterator *eli) {
     eli->ref = eli->exp->next;
     eli->exp = get_expression(eli->el->a, eli->exp->next);
 }
 
-bool eli_eq(expression_list_iterator *a, expression_list_iterator *b) {
-    return a->exp == b->exp;
-}
+bool eli_eq(el_iterator *a, el_iterator *b) { return a->ref == b->ref; }

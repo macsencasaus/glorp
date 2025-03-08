@@ -9,7 +9,6 @@ typedef object eval_fn(expression_reference ref, environment *env);
 static eval_fn eval_program;
 static eval_fn eval_identifier;
 static eval_fn eval_int_literal;
-static eval_fn eval_function_literal;
 static eval_fn eval_list_literal;
 static eval_fn eval_block_expression;
 static eval_fn eval_prefix_expression;
@@ -100,11 +99,12 @@ static object eval_list_literal(expression_reference ref, environment *env) {
     arena *a = env->a;
     expression *exp = get_expression(a, ref);
     object obj = new_object(OBJECT_TYPE_LIST);
-    object_list *obj_values = &obj.list_object.values;
-    *obj_values = new_object_list(env->a);
 
-    expression_list_iterator it = el_start(&exp->list_literal.values);
-    expression_list_iterator end = el_end(&exp->list_literal.values);
+    object_list *obj_values = &obj.list_object.values;
+    object_list_init(obj_values, a);
+
+    el_iterator it = el_start(&exp->list_literal.values);
+    el_iterator end = el_end(&exp->list_literal.values);
     for (; !eli_eq(&it, &end); eli_next(&it)) {
         ol_append(obj_values, arena_alloc_object(a, eval(it.ref, env)));
     }
@@ -118,8 +118,8 @@ static object eval_block_expression(expression_reference ref,
     expression *exp = get_expression(a, ref);
 
     object obj;
-    expression_list_iterator it = el_start(&exp->block_expression.expressions);
-    expression_list_iterator end = el_end(&exp->block_expression.expressions);
+    el_iterator it = el_start(&exp->block_expression.expressions);
+    el_iterator end = el_end(&exp->block_expression.expressions);
     for (; !eli_eq(&it, &end); eli_next(&it)) {
         obj = eval(it.ref, env);
     }
@@ -217,10 +217,10 @@ static void assign_lhs_list(expression *list, object rhs, environment *env) {
         exit(1);
     }
 
-    expression_list_iterator lhs_it = el_start(&lhs_values);
+    el_iterator lhs_it = el_start(&lhs_values);
     object_list_iterator rhs_it = ol_start(&rhs_values);
 
-    expression_list_iterator end = el_end(&lhs_values);
+    el_iterator end = el_end(&lhs_values);
     for (; !eli_eq(&lhs_it, &end); eli_next(&lhs_it), oli_next(&rhs_it)) {
         assign_lhs(lhs_it.ref, *rhs_it.obj, env);
     }

@@ -8,8 +8,8 @@ object new_object(object_type ot) {
     };
 }
 
-object_list new_object_list(arena *a) {
-    return (object_list){
+void object_list_init(object_list *ol, arena *a) {
+    *ol = (object_list){
         .a = a,
     };
 }

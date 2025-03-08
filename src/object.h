@@ -86,7 +86,7 @@ typedef struct {
 
 object new_object(object_type ot);
 
-object_list new_object_list(arena *a);
+void object_list_init(object_list *ol, arena *a);
 void ol_append(object_list *ol, object_reference ref);
 object_list_iterator ol_start(object_list *ol);
 object_list_iterator ol_end(object_list *ol);

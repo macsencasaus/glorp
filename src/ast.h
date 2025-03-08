@@ -26,7 +26,7 @@ typedef struct {
     expression_reference ref;
     expression *exp;
     expression_list *el;
-} expression_list_iterator;
+} el_iterator;
 
 typedef enum {
     EXP_TYPE_PROGRAM,
@@ -109,7 +109,6 @@ struct expression {
 
         identifier identifier;
         int_literal int_literal;
-        function_literal function_literal;
         list_literal list_literal;
 
         block_expression block_expression;
@@ -128,10 +127,10 @@ void print_ast(arena *a, expression_reference program);
 
 expression_list new_expression_list(arena *a);
 void el_append(expression_list *el, expression_reference ref);
-expression_list_iterator el_start(expression_list *el);
-expression_list_iterator el_end(expression_list *el);
+el_iterator el_start(expression_list *el);
+el_iterator el_end(expression_list *el);
 
-void eli_next(expression_list_iterator *eli);
-bool eli_eq(expression_list_iterator *a, expression_list_iterator *b);
+void eli_next(el_iterator *eli);
+bool eli_eq(el_iterator *a, el_iterator *b);
 
 #endif  // AST_H
