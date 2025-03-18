@@ -174,10 +174,6 @@ static expression_reference parse_expression(parser *p,
     expression_associativity assoc = assoc_lookup[p->peek_token.type];
     expression_precedence peek_prec = peek_precedence(p);
 
-    if (peek_prec == PRECEDENCE_STOP) {
-        return left;
-    }
-
     bool consume_cond = (assoc == ASSOC_LEFT && peek_prec > precedence) ||
                         (assoc == ASSOC_RIGHT && peek_prec >= precedence);
     while (consume_cond) {
@@ -189,6 +185,10 @@ static expression_reference parse_expression(parser *p,
 
         next_token(p);
         left = infix(p, left);
+
+        expression_precedence peek_prec = peek_precedence(p);
+        consume_cond = (assoc == ASSOC_LEFT && peek_prec > precedence) ||
+                       (assoc == ASSOC_RIGHT && peek_prec >= precedence);
     }
 
     return left;
@@ -229,9 +229,10 @@ static expression_reference parse_list_literal(parser *p) {
     next_token(p);
 
     while (!cur_token_is(p, TOKEN_TYPE_RBRACKET)) {
+        parser_flags old_flags = p->flags;
         p->flags |= TUPLE_FLAG;
         el_append(&values, parse_expression(p, PRECEDENCE_LOWEST));
-        p->flags &= ~TUPLE_FLAG;
+        p->flags = old_flags;
 
         if (peek_token_is(p, TOKEN_TYPE_RBRACKET)) {
             next_token(p);
@@ -347,10 +348,11 @@ static expression_reference parse_ternary_expression(
 
     ternary_expression.ternary_expression.condition = left;
 
+    parser_flags old_flags = p->flags;
     p->flags |= COLON_FLAG;
     ternary_expression.ternary_expression.consequence =
         parse_expression(p, PRECEDENCE_LOWEST);
-    p->flags &= ~COLON_FLAG;
+    p->flags = old_flags;
 
     expect_peek(p, TOKEN_TYPE_COLON);
 
