@@ -1,0 +1,9 @@
+#!./glorp
+
+apply :: (f, x) -> f(x);
+
+id :: x -> x;
+
+apply(id, 1)
+apply(id, 2)
+apply(id, 4)

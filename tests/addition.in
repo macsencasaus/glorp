@@ -1,0 +1,4 @@
+#!/bin/sh
+exec ./glorp "$0"
+
+__builtin_println(1 + 2)

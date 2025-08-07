@@ -1,0 +1,7 @@
+PROGRAM(1)
+    INFIX EXPRESSION
+        OP: '+'
+        LEFT:
+            INT LITERAL 1
+        RIGHT:
+            INT LITERAL 2

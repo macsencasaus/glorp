@@ -1,0 +1,16 @@
+#!/bin/sh
+exec ./build/release/glorp -a --only-ast "$0" 
+
+filter :: (list, f) ->
+    list ? {{}
+        x : xs = list;
+        rest = filter(xs, f);
+        f(x) ? [x] + rest : rest;
+    } : []
+
+
+
+sign :: x ->
+    | x > 0  => 1
+    | x == 0 => 0
+    | x < -1 => -1

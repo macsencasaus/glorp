@@ -1,210 +1,203 @@
 #include "arena.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
+extern arena a;
+//
+// clang-format off
+static const char *const expression_type_literals[EXPR_ENUM_LENGTH] = {
+    [EXPR_TYPE_PROGRAM]            = "PROGRAM",           
+    [EXPR_TYPE_UNIT]               = "UNIT",
+    [EXPR_TYPE_IDENTIFIER]         = "IDENTIFIER",        
+    [EXPR_TYPE_CHAR_LITERAL]       = "CHAR LITERAL",
+    [EXPR_TYPE_INT_LITERAL]        = "INT LITERAL",
+    [EXPR_TYPE_FLOAT_LITERAL]      = "FLOAT LITERAL",
+    [EXPR_TYPE_STRING_LITERAL]     = "STRING LITERAL",
+    [EXPR_TYPE_LIST_LITERAL]       = "LIST LITERAL",      
+    [EXPR_TYPE_BLOCK_EXPRESSION]   = "BLOCK EXPRESSION",
+    [EXPR_TYPE_PREFIX_EXPRESSION]  = "PREFIX EXPRESSION", 
+    [EXPR_TYPE_INFIX_EXPRESSION]   = "INFIX EXPRESSION",  
+    [EXPR_TYPE_TERNARY_EXPRESSION] = "TERNARY EXPRESSION",
+    [EXPR_TYPE_CALL_EXPRESSION]    = "CALL EXPRESSION",   
+    [EXPR_TYPE_INDEX_EXPRESSION]   = "INDEX EXPRESSION",
+    [EXPR_TYPE_CASE_EXPRESSION]    = "CASE EXPRESSION",
+    [EXPR_TYPE_IMPORT_EXPRESSION]  = "IMPORT EXPRESSION",
+};
+// clang-format on
 
-#define INITIAL_ARENA_CAPACITY 1024
-
-static void ensure_expression_capacity(arena *a);
-static void ensure_object_capacity(arena *a);
+// clang-format off
+static const char *const object_type_literals[OBJECT_TYPE_ENUM_LENGTH] = {
+    [OBJECT_TYPE_NULL]        = "NULL", 
+    [OBJECT_TYPE_UNIT]        = "UNIT",
+    [OBJECT_TYPE_CHAR]        = "CHAR",
+    [OBJECT_TYPE_INT]         = "INT", 
+    [OBJECT_TYPE_FLOAT]       = "FLOAT",
+    [OBJECT_TYPE_FUNCTION]    = "FUNCTION", 
+    [OBJECT_TYPE_LIST]        = "LIST", 
+    [OBJECT_TYPE_LIST_NODE]   = "LIST NODE",
+    [OBJECT_TYPE_ENVIRONMENT] = "ENVIRONMENT",
+};
+// clang-format on
 
 void arena_init(arena *a) {
-    a->expressions_mem =
-        malloc(sizeof(expression_reference) * INITIAL_ARENA_CAPACITY +
-               sizeof(expression) * INITIAL_ARENA_CAPACITY);
-
-    a->objects_mem = malloc(sizeof(object_reference) * INITIAL_ARENA_CAPACITY +
-                            sizeof(expression) * INITIAL_ARENA_CAPACITY);
-
-    a->available_expressions = (expression_reference *)a->expressions_mem;
-    a->expressions =
-        (expression *)(a->available_expressions + INITIAL_ARENA_CAPACITY);
-
-    a->available_objects = (object_reference *)a->objects_mem;
-    a->objects = (object *)(a->available_objects + INITIAL_ARENA_CAPACITY);
-
-    // null
-    a->objects[NULL_OBJECT_REFERENCE] = (object){0};
-
-    for (size_t i = 0; i < INITIAL_ARENA_CAPACITY; ++i) {
-        a->available_expressions[i] = i;
-    }
-
-    for (size_t i = 1; i < INITIAL_ARENA_CAPACITY; ++i) {
-        a->available_objects[i] = i;
-    }
-
-    a->expressions_size = 0;
-    a->expressions_capacity = INITIAL_ARENA_CAPACITY;
-
-    a->expressions_start_idx = 0;
-    a->expressions_end_idx = 0;
-
-    a->objects_size = 1;
-    a->objects_capacity = INITIAL_ARENA_CAPACITY;
-
-    a->objects_start_idx = 1;
-    a->objects_end_idx = 1;
+    ba_init(&a->expr_alloc);
+    fa_init(&a->obj_alloc, sizeof(object));
 }
 
-void arena_clear_expressions(arena *a) {
-    a->expressions_size = 0;
-    a->expressions_start_idx = 0;
-    a->expressions_end_idx = 0;
-
-    for (size_t i = 0; i < INITIAL_ARENA_CAPACITY; ++i) {
-        a->available_expressions[i] = i;
-    }
+void arena_destroy(arena *a) {
+    ba_destroy(&a->expr_alloc);
+    fa_destroy(&a->obj_alloc);
 }
 
-bool is_null_expression(arena *a, expression_reference ref) {
-    return get_expression(a, ref) == NULL;
+expr *new_expr(expr_type type, const token *tok) {
+    expr *e = (expr *)ba_malloc(&a.expr_alloc, sizeof(expr));
+
+    *e = (expr){
+        .start_tok = tok ? *tok : (token){0},
+        .type = type,
+    };
+
+    return e;
 }
 
-bool is_null_object(arena *a, expression_reference ref) {
-    return get_object(a, ref) == NULL;
+expr *new_expr2(expr_type type, const token *tok) {
+    expr *e = (expr *)ba_malloc(&a.expr_alloc, sizeof(expr));
+
+    *e = (expr){
+        .start_tok = *tok,
+        .end_tok = *tok,
+        .type = type,
+    };
+
+    return e;
 }
 
-expression_reference arena_alloc_expression(arena *a, expression exp) {
-    ensure_expression_capacity(a);
+expr *new_expr3(expr_type type, const token *start, const token *end) {
+    expr *e = (expr *)ba_malloc(&a.expr_alloc, sizeof(expr));
 
-    expression_reference ref =
-        a->available_expressions[a->expressions_start_idx];
-    a->expressions_start_idx =
-        (a->expressions_start_idx + 1) % a->expressions_capacity;
+    *e = (expr){
+        .start_tok = *start,
+        .end_tok = *end,
+        .type = type,
+    };
 
-    a->expressions[ref] = exp;
-    ++a->expressions_size;
-
-    return ref;
+    return e;
 }
 
-expression *get_expression(arena *a, expression_reference ref) {
-    return a->expressions + ref;
+void free_last_expr(void) {
+    ba_free(&a.expr_alloc, sizeof(expr));
 }
 
-static void ensure_expression_capacity(arena *a) {
-    if (a->expressions_size == a->expressions_capacity) {
-        assert(a->expressions_start_idx == a->expressions_end_idx);
+object *new_obj(object_type type, size_t rc) {
+    object *obj = (object *)fa_malloc(&a.obj_alloc);
+    *obj = (object){
+        .rc = rc,
+        .type = type,
+    };
 
-        size_t new_capacity = 2 * a->expressions_capacity;
-        void *temp_mem = a->expressions_mem;
-        void *temp_expressions = a->expressions;
+    return obj;
+}
 
-        a->expressions_mem = malloc(
-            new_capacity * (sizeof(expression) + sizeof(expression_reference)));
+object *new_empty_obj(void) {
+    return (object *)fa_malloc(&a.obj_alloc);
+}
 
-        a->available_expressions = (expression_reference *)a->expressions_mem;
-        a->expressions =
-            (expression *)(a->available_expressions + new_capacity);
+object *new_copied_obj(const object *o) {
+    object *r = (object *)fa_malloc(&a.obj_alloc);
+    *r = *o;
+    return r;
+}
 
-        memcpy(a->expressions, temp_expressions,
-               sizeof(expression) * a->expressions_capacity);
+void free_obj(object *obj) { fa_free(&a.obj_alloc, obj); }
 
-        a->expressions_start_idx = a->expressions_capacity;
-        a->expressions_end_idx = 0;
-        a->expressions_capacity = new_capacity;
-
-        for (size_t i = a->expressions_start_idx; i < a->expressions_capacity;
-             ++i) {
-            a->available_expressions[i] = i;
+void cleanup(object *o) {
+    switch (o->type) {
+        case OBJECT_TYPE_LIST: {
+            rc_dec(o->values.head);
+        } break;
+        case OBJECT_TYPE_LIST_NODE: {
+            rc_dec(o->next);
+            rc_dec(o->value);
+        } break;
+        case OBJECT_TYPE_ENVIRONMENT: {
+            env_destroy(&o->env);
+        } break;
+        case OBJECT_TYPE_FUNCTION: {
+            if (o->outer_env->obj != NULL) {
+                rc_dec(o->outer_env->obj);
+            }
+        } break;
+        default: {
         }
-
-        free(temp_mem);
     }
+    fa_free(&a.obj_alloc, o);
 }
 
-static void ensure_object_capacity(arena *a) {
-    if (a->objects_size == a->objects_capacity) {
-        assert(a->objects_start_idx == a->objects_end_idx);
+void temp_cleanup(object *o) {
+    if (fa_valid_ptr(&a.obj_alloc, o))
+        return;
 
-        size_t new_capacity = 2 * a->objects_capacity;
-        void *temp_mem = a->objects_mem;
-        void *temp_objects = a->objects;
-
-        a->objects_mem =
-            malloc(new_capacity * (sizeof(object) + sizeof(object_reference)));
-
-        a->available_objects = (object_reference *)a->expressions_mem;
-        a->objects = (object *)(a->available_objects + new_capacity);
-
-        memcpy(a->objects, temp_objects, sizeof(object) * a->objects_capacity);
-
-        a->objects_start_idx = a->objects_capacity;
-        a->objects_end_idx = 0;
-        a->objects_capacity = new_capacity;
-
-        for (size_t i = a->objects_start_idx; i < a->objects_capacity; ++i) {
-            a->available_objects[i] = i;
+    switch (o->type) {
+        case OBJECT_TYPE_LIST: {
+            rc_dec(o->values.head);
+        } break;
+        case OBJECT_TYPE_FUNCTION: {
+            if (o->outer_env->obj != NULL)
+                rc_dec(o->outer_env->obj);
+        } break;
+        default: {
         }
-
-        free(temp_mem);
     }
 }
 
-// object
+void rc_dec(object *o) {
+    if (o == NULL)
+        return;
 
-object_reference arena_alloc_object(arena *a, object obj) {
-    ensure_object_capacity(a);
-    obj.rc = 1;
+    assert(o->rc > 0);
 
-    object_reference ref = a->available_objects[a->objects_start_idx];
-    a->objects_start_idx = (a->objects_start_idx + 1) % a->objects_capacity;
-
-    obj.ref = ref;
-    a->objects[ref] = obj;
-    ++a->objects_size;
-
-    return ref;
+    if (--o->rc == 0) {
+        cleanup(o);
+    }
 }
 
-object *get_object(arena *a, object_reference ref) { return a->objects + ref; }
-
-#ifdef DEBUG
-
-static const char *const expression_type_literals[EXP_ENUM_LENGTH] = {
-    "PROGRAM",           "IDENTIFIER",       "INT LITERAL",
-    "LIST LITERAL",      "BLOCK EXPRESSION", "PREFIX EXPRESSION",
-    "ASSIGN EXPRESSION", "INFIX EXPRESSION", "TERNARY EXPRESSION",
-    "CALL EXPRESSION",   "INDEX EXPRESSION",
-};
-
-static const char *const object_type_literals[OBJECT_TYPE_ENUM_LENGTH] = {
-    "NULL", "INT", "FUNCTION", "LIST", "LIST NODE",
-};
-
-static void print_expression_arena(arena *a);
-static void print_object_arena(arena *a);
-
-void print_debug_info(arena *a) {
+void print_debug_info(void) {
     printf("\n---DEBUG---\n\n");
-    print_expression_arena(a);
-    printf("\n------\n");
-    print_object_arena(a);
+    /* arena_print_exprs(); */
+    /* printf("\n------\n"); */
+    arena_print_objects();
 }
 
-static void print_expression_arena(arena *a) {
-    printf("EXPRESSIONS ARENA\nSIZE: %lu\nCAPACITY: %lu\n", a->expressions_size,
-           a->expressions_capacity);
+void arena_print_exprs(void) {
+    size_t page_size = sysconf(_SC_PAGESIZE);
+
+    size_t size = a.expr_alloc.size;
+
+    size_t exprs = size / sizeof(expr);
+
+    printf("EXPRESSIONS ARENA\nEXPRS: %zu\nSIZE: %zu\nCAPACITY: %zu\n",
+           exprs, a.expr_alloc.size, a.expr_alloc.pages * page_size);
 
     printf("\nEXPRESSIONS:\n");
-    expression *expression;
-    for (size_t i = 0; i < a->expressions_size; ++i) {
-        expression = a->expressions + i;
-        printf("%s\n", expression_type_literals[expression->type]);
+    expr *e;
+    for (size_t i = 0; i < exprs; ++i) {
+        e = (expr *)(a.expr_alloc.store + (i * sizeof(expr)));
+        printf("%3zu: %s\n", i, expression_type_literals[e->type]);
     }
 }
 
-static void print_object_arena(arena *a) {
-    printf("OBJECTS ARENA\nSIZE: %lu\nCAPACITY: %lu\n", a->objects_size,
-           a->objects_capacity);
+void arena_print_objects(void) {
+    size_t page_size = sysconf(_SC_PAGESIZE);
+    size_t capacity = a.obj_alloc.pages * page_size;
 
-    printf("\nOBJECTS:\n");
-    object *object;
-    for (size_t i = 0; i < a->objects_size; ++i) {
-        object = a->objects + i;
-        printf("%s\n", object_type_literals[object->type]);
+    printf("OBJECTS ARENA\nSIZE: %zu\nCAPACITY: %zu\nOBJECTS: %zu\n",
+           a.obj_alloc.size, capacity, a.obj_alloc.size / a.obj_alloc.ty_size);
+
+    size_t ty_size = a.obj_alloc.ty_size;
+
+    for (size_t i = 0; i < capacity; i += ty_size) {
+        object *o = (object *)(a.obj_alloc.store + i);
+        if (!fa_valid_ptr(&a.obj_alloc, o))
+            continue;
+
+        printf("%p: type: %-11s, rc: %zu\n", (void *)o, object_type_literals[o->type], o->rc);
     }
 }
-#endif  // DEBUG

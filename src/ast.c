@@ -1,318 +1,274 @@
 #include "ast.h"
 
+#include <stdio.h>
 #include <string.h>
-
-#include "arena.h"
 
 #define INDENT ((int)(4 * indent)), ""
 #define INDENT_FMT "%*s"
 
-typedef void print_expression_fn(arena *a, expression_reference ref,
-                                 size_t indent);
+typedef void print_expression_fn(const expr *e, size_t indent);
 
 static print_expression_fn print_expression;
 
 static print_expression_fn print_program;
 
+static print_expression_fn print_unit;
+
 static print_expression_fn print_identifier;
+static print_expression_fn print_char_literal;
 static print_expression_fn print_int_literal;
+static print_expression_fn print_float_literal;
+static print_expression_fn print_string_literal;
 static print_expression_fn print_list_literal;
 
 static print_expression_fn print_block_expression;
 static print_expression_fn print_prefix_expression;
-static print_expression_fn print_assign_expression;
 static print_expression_fn print_infix_expression;
 static print_expression_fn print_ternary_expression;
 static print_expression_fn print_call_expression;
 static print_expression_fn print_index_expression;
+static print_expression_fn print_case_expression;
 
-static void print_expression_list(arena *a, expression_list el, size_t indent);
+static print_expression_fn print_import_expression;
+
+static void print_expression_list(const expr_list *el, size_t indent);
 
 // clang-format off
-static print_expression_fn *print_expression_fns[EXP_ENUM_LENGTH] = {
-    print_program,
+static print_expression_fn *print_expression_fns[EXPR_ENUM_LENGTH] = {
+    [EXPR_TYPE_PROGRAM]            = print_program,
 
-    print_identifier,
-    print_int_literal,
-    print_list_literal,
+    [EXPR_TYPE_UNIT]               = print_unit,
 
-    print_block_expression,
-    print_prefix_expression,
-    print_assign_expression,
-    print_infix_expression,
-    print_ternary_expression,
-    print_call_expression,
-    print_index_expression,
+    [EXPR_TYPE_IDENTIFIER]         = print_identifier,
+    [EXPR_TYPE_CHAR_LITERAL]       = print_char_literal,
+    [EXPR_TYPE_INT_LITERAL]        = print_int_literal,
+    [EXPR_TYPE_FLOAT_LITERAL]      = print_float_literal,
+    [EXPR_TYPE_STRING_LITERAL]     = print_string_literal,
+    [EXPR_TYPE_LIST_LITERAL]       = print_list_literal,
+
+    [EXPR_TYPE_BLOCK_EXPRESSION]   = print_block_expression,
+    [EXPR_TYPE_PREFIX_EXPRESSION]  = print_prefix_expression,
+    [EXPR_TYPE_INFIX_EXPRESSION]   = print_infix_expression,
+    [EXPR_TYPE_TERNARY_EXPRESSION] = print_ternary_expression,
+    [EXPR_TYPE_CALL_EXPRESSION]    = print_call_expression,
+    [EXPR_TYPE_INDEX_EXPRESSION]   = print_index_expression,
+    [EXPR_TYPE_CASE_EXPRESSION]    = print_case_expression,
+
+    [EXPR_TYPE_IMPORT_EXPRESSION]  = print_import_expression,
 };
 // clang-format on
 
-expression new_expression(expression_type et, token token) {
-    return (expression){
-        .token = token,
-        .next = 0,
-        .type = et,
-    };
-}
+void print_ast(expr *program) { print_expression(program, 0); }
 
-void print_ast(arena *a, expression_reference program) {
-    print_expression(a, program, 0);
-}
-
-static void print_expression(arena *a, expression_reference ref,
-                             size_t indent) {
-    expression *e = get_expression(a, ref);
+static void print_expression(const expr *e, size_t indent) {
     print_expression_fn *print = print_expression_fns[e->type];
-    print(a, ref, indent);
+    print(e, indent);
 }
 
-static void print_program(arena *a, expression_reference ref, size_t indent) {
-    expression *program = get_expression(a, ref);
-    expression_list expressions = program->program.expressions;
+static void print_program(const expr *program, size_t indent) {
+    const expr_list *expressions = &program->expressions;
 
-    printf(INDENT_FMT "%s(%ld)\n", INDENT, "PROGRAM", expressions.size);
+    printf(INDENT_FMT "PROGRAM(%ld)\n", INDENT, expressions->size);
     ++indent;
 
-    print_expression_list(a, expressions, indent);
+    print_expression_list(expressions, indent);
 }
 
-static void print_identifier(arena *a, expression_reference ref,
-                             size_t indent) {
-    expression *identifier = get_expression(a, ref);
-
-    size_t ident_length = identifier->identifier.length;
-    char buf[ident_length + 1];
-    buf[ident_length] = 0;
-    strncpy(buf, identifier->identifier.value, ident_length);
-
-    printf(INDENT_FMT "%s %s\n", INDENT, "IDENTIFIER", buf);
+static void print_unit(const expr *e, size_t indent) {
+    (void)e;
+    printf(INDENT_FMT "UNIT\n", INDENT);
 }
 
-static void print_int_literal(arena *a, expression_reference ref,
-                              size_t indent) {
-    expression *int_literal = get_expression(a, ref);
-    int64_t value = int_literal->int_literal.value;
-
-    printf(INDENT_FMT "%s %ld\n", INDENT, "INT LITERAL", value);
+static void print_identifier(const expr *ident, size_t indent) {
+    printf(INDENT_FMT "IDENTIFIER %.*s\n", INDENT, (int)ident->length, ident->literal);
 }
 
-static void print_list_literal(arena *a, expression_reference ref,
-                               size_t indent) {
-    expression *list_literal = get_expression(a, ref);
+static void print_char_literal(const expr *char_literal, size_t indent) {
+    printf(INDENT_FMT "CHAR LITERAL %c\n", INDENT, char_literal->char_value);
+}
 
+static void print_int_literal(const expr *int_literal, size_t indent) {
+    printf(INDENT_FMT "INT LITERAL %ld\n", INDENT, int_literal->int_value);
+}
+
+static void print_float_literal(const expr *float_literal, size_t indent) {
+    printf(INDENT_FMT "FLOAT LITERAL %lf\n", INDENT, float_literal->float_value);
+}
+
+static void print_string_literal(const expr *string_literal, size_t indent) {
+    printf(INDENT_FMT "STRING LITERAL \"%.*s\"\n", INDENT, 
+           (int)string_literal->length, string_literal->literal);
+}
+
+static void print_list_literal(const expr *list_literal, size_t indent) {
     printf(INDENT_FMT "%s\n", INDENT, "LIST LITERAL");
     ++indent;
 
-    expression_list expressions = list_literal->list_literal.values;
+    const expr_list *expressions = &list_literal->expressions;
 
-    printf(INDENT_FMT "%s(%ld):\n", INDENT, "expressions", expressions.size);
+    printf(INDENT_FMT "expressions(%ld):\n", INDENT, expressions->size);
     ++indent;
 
-    print_expression_list(a, expressions, indent);
+    print_expression_list(expressions, indent);
 }
 
-static void print_block_expression(arena *a, expression_reference ref,
-                                   size_t indent) {
-    expression *block_expression = get_expression(a, ref);
-    expression_list expressions =
-        block_expression->block_expression.expressions;
+static void print_block_expression(const expr *block_expression, size_t indent) {
+    const expr_list *expressions = &block_expression->expressions;
 
-    printf(INDENT_FMT "%s(%ld):\n", INDENT, "BLOCK", expressions.size);
+    printf(INDENT_FMT "BLOCK(%ld):\n", INDENT, expressions->size);
     ++indent;
 
-    print_expression_list(a, expressions, indent);
+    print_expression_list(expressions, indent);
 }
 
-static void print_prefix_expression(arena *a, expression_reference ref,
-                                    size_t indent) {
-    expression *prefix_expression = get_expression(a, ref);
-
-    printf(INDENT_FMT "%s:\n", INDENT, "PREFIX EXPRESSION");
+static void print_prefix_expression(const expr *prefix_expr, size_t indent) {
+    printf(INDENT_FMT "PREFIX_EXPERSSION:\n", INDENT);
     ++indent;
 
-    token op = prefix_expression->prefix_expression.op;
-    expression_reference right = prefix_expression->prefix_expression.right;
+    const token *op = &prefix_expr->op;
+    expr *right = prefix_expr->right;
 
-    printf(INDENT_FMT "%s: %s\n", INDENT, "OP", token_type_literals[op.type]);
+    printf(INDENT_FMT "OP: %s\n", INDENT, token_type_literals[op->type]);
 
-    printf(INDENT_FMT "%s:\n", INDENT, "RIGHT");
+    printf(INDENT_FMT "RIGHT:\n", INDENT);
     ++indent;
 
-    print_expression(a, right, indent);
+    print_expression(right, indent);
 }
 
-static void print_assign_expression(arena *a, expression_reference ref,
-                                    size_t indent) {
-    expression *assign_expression = get_expression(a, ref);
+static void print_infix_expression(const expr *infix_expr, size_t indent) {
+    const token *op = &infix_expr->op;
+    expr *left = infix_expr->left;
+    expr *right = infix_expr->right;
 
-    expression_reference left = assign_expression->assign_expression.left;
-    expression_reference right = assign_expression->assign_expression.right;
-    bool constant = assign_expression->assign_expression.constant;
-
-    printf(INDENT_FMT "%s%s\n", INDENT, constant ? "CONST " : "",
-           "ASSIGN EXPRESSION");
+    printf(INDENT_FMT "INFIX EXPRESSION\n", INDENT);
     ++indent;
 
-    printf(INDENT_FMT "%s:\n", INDENT, "LEFT");
+    printf(INDENT_FMT "OP: %s\n", INDENT, token_type_literals[op->type]);
+
+    printf(INDENT_FMT "LEFT:\n", INDENT);
     ++indent;
 
-    print_expression(a, left, indent);
+    print_expression(left, indent);
     --indent;
 
-    printf(INDENT_FMT "%s:\n", INDENT, "RIGHT");
+    printf(INDENT_FMT "RIGHT:\n", INDENT);
     ++indent;
 
-    print_expression(a, right, indent);
+    print_expression(right, indent);
 }
 
-static void print_infix_expression(arena *a, expression_reference ref,
-                                   size_t indent) {
-    expression *infix_expression = get_expression(a, ref);
+static void print_ternary_expression(const expr *ternary_expr, size_t indent) {
+    expr *condition = ternary_expr->condition;
+    expr *consequence = ternary_expr->consequence;
+    expr *alternative = ternary_expr->alternative;
 
-    token op = infix_expression->infix_expression.op;
-    expression_reference left = infix_expression->infix_expression.left;
-    expression_reference right = infix_expression->infix_expression.right;
-
-    printf(INDENT_FMT "%s\n", INDENT, "INFIX EXPRESSION");
+    printf(INDENT_FMT "TERNARY EXPRESSION\n", INDENT);
     ++indent;
 
-    printf(INDENT_FMT "%s: %s\n", INDENT, "OP", token_type_literals[op.type]);
-
-    printf(INDENT_FMT "%s:\n", INDENT, "LEFT");
+    printf(INDENT_FMT "CONDITION:\n", INDENT);
     ++indent;
 
-    print_expression(a, left, indent);
+    print_expression(condition, indent);
     --indent;
 
-    printf(INDENT_FMT "%s:\n", INDENT, "RIGHT");
+    printf(INDENT_FMT "CONSEQUENCE:\n", INDENT);
     ++indent;
 
-    print_expression(a, right, indent);
-}
-
-static void print_ternary_expression(arena *a, expression_reference ref,
-                                     size_t indent) {
-    expression *ternary_expression = get_expression(a, ref);
-
-    expression_reference condition =
-        ternary_expression->ternary_expression.condition;
-    expression_reference consequence =
-        ternary_expression->ternary_expression.consequence;
-    expression_reference alternative =
-        ternary_expression->ternary_expression.alternative;
-
-    printf(INDENT_FMT "%s\n", INDENT, "TERNARY EXPRESSION");
-    ++indent;
-
-    printf(INDENT_FMT "%s\n", INDENT, "CONDITION:");
-    ++indent;
-
-    print_expression(a, condition, indent);
+    print_expression(consequence, indent);
     --indent;
 
-    printf(INDENT_FMT "%s\n", INDENT, "CONSEQUENCE:");
+    printf(INDENT_FMT "ALTERNATIVE:\n", INDENT);
     ++indent;
 
-    print_expression(a, consequence, indent);
+    print_expression(alternative, indent);
+}
+
+static void print_call_expression(const expr *call_expr, size_t indent) {
+    expr *function = call_expr->function;
+    const expr_list *params = &call_expr->params;
+
+    printf(INDENT_FMT "CALL EXPRESSION\n", INDENT);
+    ++indent;
+
+    printf(INDENT_FMT "FUNCTION:\n", INDENT);
+    ++indent;
+
+    print_expression(function, indent);
     --indent;
 
-    printf(INDENT_FMT "%s\n", INDENT, "ALTERNATIVE:");
+    printf(INDENT_FMT "ARGUMENTS(%ld):\n", INDENT, params->size);
     ++indent;
 
-    print_expression(a, alternative, indent);
+    print_expression_list(params, indent);
 }
 
-static void print_call_expression(arena *a, expression_reference ref,
-                                  size_t indent) {
-    expression *call_expression = get_expression(a, ref);
+static void print_index_expression(const expr *index_expr, size_t indent) {
+    expr *list = index_expr->list;
+    expr *index = index_expr->index;
 
-    expression_reference function = call_expression->call_expression.function;
-
-    expression_list arguments = call_expression->call_expression.arguments;
-
-    printf(INDENT_FMT "%s\n", INDENT, "CALL EXPRESSION");
+    printf(INDENT_FMT "INDEX EXPRESSION\n", INDENT);
     ++indent;
 
-    printf(INDENT_FMT "%s\n", INDENT, "FUNCTION:");
+    printf(INDENT_FMT "LIST:\n", INDENT);
     ++indent;
 
-    print_expression(a, function, indent);
+    print_expression(list, indent);
     --indent;
 
-    printf(INDENT_FMT "%s(%ld):\n", INDENT, "ARGUMENTS", arguments.size);
+    printf(INDENT_FMT "INDEX:\n", INDENT);
     ++indent;
 
-    print_expression_list(a, arguments, indent);
+    print_expression(index, indent);
 }
 
-static void print_index_expression(arena *a, expression_reference ref,
-                                   size_t indent) {
-    expression *index_expression = get_expression(a, ref);
+static void print_case_expression(const expr *case_expr, size_t indent) {
+    printf(INDENT_FMT "CASE EXPRESSION\n", INDENT);
 
-    expression_reference list = index_expression->index_expression.list;
-    expression_reference index = index_expression->index_expression.index;
+    size_t cases = case_expr->conditions.size;
 
-    printf(INDENT_FMT "%s\n", INDENT, "INDEX EXPRESSION");
+    printf(INDENT_FMT "cases(%zu):\n", INDENT, cases);
     ++indent;
 
-    printf(INDENT_FMT "%s\n", INDENT, "LIST:");
-    ++indent;
+    const expr *condition = case_expr->conditions.head;
+    const expr *result = case_expr->results.head;
 
-    print_expression(a, list, indent);
-    --indent;
+    for (size_t i = 0; i < cases; ++i) {
+        printf(INDENT_FMT "CONDITION:\n", INDENT);
+        ++indent;
+        print_expression(condition, indent);
+        --indent;
+        printf(INDENT_FMT "RESULT:\n", INDENT);
+        ++indent;
+        print_expression(result, indent);
+        --indent;
 
-    printf(INDENT_FMT "%s\n", INDENT, "INDEX:");
-    ++indent;
-
-    print_expression(a, index, indent);
-}
-
-static void print_expression_list(arena *a, expression_list el, size_t indent) {
-    if (el.size == 0) return;
-    expression_reference ref = el.head;
-    expression *exp = get_expression(a, ref);
-
-    do {
-        print_expression(a, ref, indent);
-        ref = exp->next;
-        exp = get_expression(a, ref);
-    } while (ref != 0);
-}
-
-expression_list new_expression_list(arena *a) {
-    return (expression_list){
-        .a = a,
-    };
-}
-
-void el_append(expression_list *el, expression_reference ref) {
-    if (el->size == 0) {
-        el->head = ref;
-    } else {
-        el->a->expressions[el->tail].next = ref;
+        condition = condition->next;
+        result = result->next;
     }
-    el->tail = ref;
+}
+
+static void print_import_expression(const expr *import_expr, size_t indent) {
+    printf(INDENT_FMT "IMPORT EXPRESSION %.*s\n", INDENT,
+           (int)import_expr->length, import_expr->literal);
+}
+
+static void print_expression_list(const expr_list *el, size_t indent) {
+    if (el->size == 0) return;
+    const expr *e = el->head;
+
+    while (e) {
+        print_expression(e, indent);
+        e = e->next;
+    }
+}
+
+void el_append(expr_list *el, expr *e) {
+    if (el->size == 0) {
+        el->head = e;
+    } else {
+        el->tail->next = e;
+    }
+    el->tail = e;
     ++el->size;
 }
-
-el_iterator el_start(expression_list *el) {
-    return (el_iterator){
-        .ref = el->head,
-        .exp = get_expression(el->a, el->head),
-        .el = el,
-    };
-}
-
-el_iterator el_end(expression_list *el) {
-    return (el_iterator){
-        .ref = 0,
-        .exp = NULL,
-        .el = el,
-    };
-}
-
-void eli_next(el_iterator *eli) {
-    eli->ref = eli->exp->next;
-    eli->exp = get_expression(eli->el->a, eli->exp->next);
-}
-
-bool eli_eq(el_iterator *a, el_iterator *b) { return a->ref == b->ref; }

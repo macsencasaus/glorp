@@ -1,0 +1,8 @@
+#!./glorp
+
+create_adder :: x -> y -> x + y;
+
+plus_two :: create_adder(2)
+
+x = plus_two(3);
+y = plus_two(2);

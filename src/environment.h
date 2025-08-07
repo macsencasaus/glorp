@@ -3,22 +3,26 @@
 
 #include <stdbool.h>
 
-#include "hash_table.h"
+#include "glorpoptions.h"
+#include "hashtable.h"
 
 typedef struct environment environment;
-typedef struct arena arena;
 
 struct environment {
-    arena *a;
-
     environment *outer;
-    hash_table ht;
+    hash_table *ht;
+
+    size_t scope;
+
+    object *obj;
+
+    const glorp_options *selected_options;
 };
 
-void environment_init(environment *e, arena *a, environment *outer);
-void env_set(environment *env, const char *key, size_t key_length,
-             object_reference value, bool *ok);
-object_reference env_get(environment *env, const char *key, size_t key_length, bool *ok);
+void environment_init(environment *e, environment *outer, hash_table *ht, size_t scope);
+bool env_set(environment *env, const char *key, size_t key_length, object *value, bool is_const);
+bool env_get(environment *env, const char *key, size_t key_length, object **value, bool *is_const);
 bool env_contains_local_scope(environment *env, const char *key, size_t key_length);
+void env_destroy(environment *env);
 
 #endif  // ENVIRONMENT_H

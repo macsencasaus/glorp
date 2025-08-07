@@ -1,0 +1,3 @@
++ "fastadd.so";
+
+__builtin_fast_add(1, 2);

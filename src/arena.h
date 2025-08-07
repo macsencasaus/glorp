@@ -1,54 +1,34 @@
 #ifndef ARENA_H
 #define ARENA_H
 
-#include <stdlib.h>
-
 #include "ast.h"
+#include "bumpalloc.h"
+#include "fixedalloc.h"
 #include "object.h"
 
-struct arena {
-    size_t expressions_size;
-    size_t expressions_capacity;
+typedef struct {
+    bump_alloc expr_alloc;
+    fixed_alloc obj_alloc;
+} arena;
 
-    size_t expressions_start_idx;
-    size_t expressions_end_idx;
-    expression_reference *available_expressions;
-    expression *expressions;
+void arena_init(arena *);
+void arena_destroy(arena *);
 
-    size_t objects_size;
-    size_t objects_capacity;
+expr *new_expr(expr_type, const token *);
+expr *new_expr2(expr_type, const token *);
+expr *new_expr3(expr_type, const token *start, const token *end);
 
-    size_t objects_start_idx;
-    size_t objects_end_idx;
-    object_reference *available_objects;
-    object *objects;
+object *new_obj(object_type, size_t rc);
+object *new_empty_obj(void);
+object *new_copied_obj(const object *);
+void free_obj(object *);
 
-    void *expressions_mem;
-    void *objects_mem;
-};
+void cleanup(object *);
+void temp_cleanup(object *);
+void rc_dec(object *);
 
-typedef struct arena arena;
-
-void arena_init(arena *a);
-void arena_clear_expressions(arena *a);
-bool is_null_expression(arena *a, expression_reference ref);
-bool is_null_object(arena *a, object_reference ref);
-
-// expressions
-
-expression_reference arena_alloc_expression(arena *a, expression exp);
-expression *get_expression(arena *a, expression_reference ref);
-
-// objects
-
-object_reference arena_alloc_object(arena *a, object obj);
-object *get_object(arena *a, object_reference ref);
-void inspect_object(arena *a, object_reference ref);
-
-#ifdef DEBUG
-
-void print_debug_info(arena *a);
-
-#endif  // DEBUG
+void print_debug_info(void);
+void arena_print_exprs(void);
+void arena_print_objects(void);
 
 #endif  // ARENA_H

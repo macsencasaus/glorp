@@ -1,0 +1,7 @@
+#!/bin/sh
+exec ./glorp "$0"
+
+id :: x -> x;
+apply_id :: x -> id(x);
+
+__builtin_println(apply_id(3));

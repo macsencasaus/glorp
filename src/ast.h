@@ -5,132 +5,115 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "error.h"
 #include "token.h"
 
-typedef struct expression_list expression_list;
-typedef struct expression expression;
-typedef struct arena arena;
+#define WARN_UNUSED_RESULT __attribute__((warn_unused_result))
 
-// just the index into the arena
-typedef size_t expression_reference;
+typedef struct expr_list expr_list;
+typedef struct expr expr;
 
-struct expression_list {
-    expression_reference head;
-    expression_reference tail;
+struct expr_list {
+    expr *head;
+    expr *tail;
     size_t size;
-
-    arena *a;
 };
 
-typedef struct {
-    expression_reference ref;
-    expression *exp;
-    expression_list *el;
-} el_iterator;
-
 typedef enum {
-    EXP_TYPE_PROGRAM,
+    EXPR_TYPE_NONE,
 
-    EXP_TYPE_IDENTIFIER,
-    EXP_TYPE_INT_LITERAL,
-    EXP_TYPE_LIST_LITERAL,
+    EXPR_TYPE_PROGRAM,
 
-    EXP_TYPE_BLOCK_EXPRESSION,
-    EXP_TYPE_PREFIX_EXPRESSION,
-    EXP_TYPE_ASSIGN_EXPRESSION,
-    EXP_TYPE_INFIX_EXPRESSION,
-    EXP_TYPE_TERNARY_EXPRESSION,
-    EXP_TYPE_CALL_EXPRESSION,
-    EXP_TYPE_INDEX_EXPRESSION,
+    EXPR_TYPE_UNIT,
 
-    EXP_ENUM_LENGTH,
-} expression_type;
+    EXPR_TYPE_IDENTIFIER,
+    EXPR_TYPE_CHAR_LITERAL,
+    EXPR_TYPE_INT_LITERAL,
+    EXPR_TYPE_FLOAT_LITERAL,
+    EXPR_TYPE_STRING_LITERAL,
+    EXPR_TYPE_LIST_LITERAL,
 
-typedef struct {
-    expression_list expressions;
-} program;
+    EXPR_TYPE_BLOCK_EXPRESSION,
+    EXPR_TYPE_PREFIX_EXPRESSION,
+    EXPR_TYPE_INFIX_EXPRESSION,
+    EXPR_TYPE_TERNARY_EXPRESSION,
+    EXPR_TYPE_CALL_EXPRESSION,
+    EXPR_TYPE_INDEX_EXPRESSION,
+    EXPR_TYPE_CASE_EXPRESSION,
 
-typedef struct {
-    const char *value;
-    size_t length;
-} identifier;
+    EXPR_TYPE_IMPORT_EXPRESSION,
 
-typedef struct {
-    int64_t value;
-} int_literal;
+    EXPR_ENUM_LENGTH,
+} expr_type;
 
-typedef struct {
-    expression_list values;
-} list_literal;
+struct expr {
+    token start_tok;
+    token end_tok;
 
-typedef struct {
-    expression_list expressions;
-} block_expression;
+    expr *next;  // only used in expression list
 
-typedef struct {
-    token op;
-    expression_reference right;
-} prefix_expression;
-
-typedef struct {
-    expression_reference left;
-    expression_reference right;
-    bool constant;
-} assign_expression;
-
-typedef struct {
-    token op;
-    expression_reference left;
-    expression_reference right;
-} infix_expression;
-
-typedef struct {
-    expression_reference condition;
-    expression_reference consequence;
-    expression_reference alternative;
-} ternary_expression;
-
-typedef struct {
-    expression_reference function;
-    expression_list arguments;
-} call_expression;
-
-typedef struct {
-    expression_reference list;
-    expression_reference index;
-} index_expression;
-
-struct expression {
-    token token;
-    expression_reference next;  // only used in expression list
-    expression_type type;
+    expr_type type;
     union {
-        program program;
+        // program
+        // list literal
+        // block
+        expr_list expressions;
 
-        identifier identifier;
-        int_literal int_literal;
-        list_literal list_literal;
+        // identifier
+        // string literal
+        // import
+        struct {
+            const char *literal;
+            size_t length;
+        };
 
-        block_expression block_expression;
-        prefix_expression prefix_expression;
-        assign_expression assign_expression;
-        infix_expression infix_expression;
-        ternary_expression ternary_expression;
-        call_expression call_expression;
-        index_expression index_expression;
+        // char literal
+        char char_value;
+
+        // int literal
+        int64_t int_value;
+
+        // float literal
+        double float_value;
+
+        // prefix
+        // assign
+        // infix
+        struct {
+            token op;
+            expr *right;
+            expr *left;
+        };
+
+        // ternary
+        struct {
+            expr *condition;
+            expr *consequence;
+            expr *alternative;
+        };
+
+        // call
+        struct {
+            expr *function;
+            expr_list params;
+        };
+
+        // index
+        struct {
+            expr *list;
+            expr *index;
+        };
+
+        // case
+        struct {
+            expr_list conditions;
+            expr_list results;
+        };
     };
 };
 
-expression new_expression(expression_type et, token token);
+void print_ast(expr *program);
 
-void print_ast(arena *a, expression_reference program);
-
-expression_list new_expression_list(arena *a);
-void el_append(expression_list *el, expression_reference ref);
-el_iterator el_start(expression_list *el);
-el_iterator el_end(expression_list *el);
-
-void eli_next(el_iterator *eli);
-bool eli_eq(el_iterator *a, el_iterator *b);
+void el_append(expr_list *, expr *);
 
 #endif  // AST_H

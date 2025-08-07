@@ -1,0 +1,9 @@
+#!./glorp
+
+plus_one :: x -> x + 1;
+
+times_two :: x -> 2 * x;
+
+h :: times_two <<< plus_one;
+
+h(2);

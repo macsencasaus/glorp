@@ -6,94 +6,106 @@
 
 #include "ast.h"
 #include "environment.h"
+#include "sb.h"
 
-typedef size_t object_reference;
 typedef struct object_list object_list;
 
-#define NULL_OBJECT_REFERENCE ((object_reference)0)
-
 struct object_list {
-    object_reference head;
-    object_reference tail;
+    object *head;
+    object *tail;
     size_t size;
-
-    arena *a;
 };
 
 typedef enum {
     OBJECT_TYPE_NULL,
+
+    OBJECT_TYPE_UNIT,
+
+    OBJECT_TYPE_CHAR,
     OBJECT_TYPE_INT,
-    // OBJECT_TYPE_FLOAT,
-    // OBJECT_TYPE_CHAR,
+    OBJECT_TYPE_FLOAT,
+
     OBJECT_TYPE_FUNCTION,
     OBJECT_TYPE_LIST,
+
+    OBJECT_TYPE_LVALUE,
+
+    // don't get evaluated
     OBJECT_TYPE_LIST_NODE,
+    OBJECT_TYPE_ENVIRONMENT,
 
     OBJECT_TYPE_ENUM_LENGTH,
 } object_type;
 
-typedef struct {
-    int64_t value;
-} int_object;
+typedef bool builtin_fn_t(const expr_list *params, const expr *call, environment *env, object *result);
 
-typedef struct {
-    double value;
-} float_object;
+typedef struct object object;
 
-typedef struct {
-    char value;
-} char_object;
-
-typedef struct {
-    expression_list arguments;
-
-    expression_reference body;
-    environment env;
-} function_object;
-
-typedef struct {
-    object_list values;
-} list_object;
-
-typedef struct {
-    object_reference value;
-    object_reference next;
-} list_node;
-
-typedef struct {
+struct object {
     size_t rc;
-
-    // reference to itself if stored in the arena
-    object_reference ref;
 
     object_type type;
     union {
-        int_object int_object;
-        // float_object float_object;
-        // char_object char_object;
-        function_object function_object;
-        list_object list_object;
-        list_node list_node;
+        // char
+        char char_value;
+
+        // int
+        int64_t int_value;
+
+        // float
+        double float_value;
+
+        // function
+        struct {
+            bool builtin;
+            union {
+                // normal functions
+                struct {
+                    expr_list params;
+                    const expr *body;
+                };
+
+                // builtin functions
+                struct {
+                    size_t builtin_param_count;
+                    builtin_fn_t *builtin_fn;
+                };
+            };
+
+            environment *outer_env;
+        };
+
+        // list
+        object_list values;
+
+        // lvalue
+        struct {
+            object *ref;  // reference to heap allocated object
+            bool is_const;
+        };
+
+        // list node
+        struct {
+            object *value;
+            object *next;
+        };
+
+        // environment
+        environment env;
     };
-} object;
+};
 
 typedef struct {
-    object_reference ref;
     object *obj;
-    object_reference ln_ref;
-    object_list *ol;
-} object_list_iterator;
+    object *ln;
+} ol_iterator;
 
-object new_object(object_type ot);
+void ol_append(object_list *ol, object *obj);
+ol_iterator ol_start(const object_list *ol);
 
-void object_list_init(object_list *ol, arena *a);
-void ol_append(object_list *ol, object_reference ref);
-object_list_iterator ol_start(object_list *ol);
-object_list_iterator ol_end(object_list *ol);
+void oli_next(ol_iterator *oli);
+bool oli_is_end(const ol_iterator *oli);
 
-void oli_next(object_list_iterator *oli);
-bool oli_eq(object_list_iterator *a, object_list_iterator *b);
-
-void inspect(object *obj);
+void inspect(const object *obj, String_Builder *sb, bool from_print);
 
 #endif  // OBJECT_H

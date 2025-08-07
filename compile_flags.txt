@@ -1,5 +1,4 @@
 -xc
--std=c11
 -pedantic
 -ggdb
 -Wall

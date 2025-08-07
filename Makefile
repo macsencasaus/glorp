@@ -1,33 +1,48 @@
-.PHONY: all clean debug release
+.PHONY: all test clean
 
-CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -Wpedantic
-DEBUG_FLAGS = -ggdb -DDEBUG
-LD_FLAGS =
+CC = clang
+CFLAGS = -fPIC -Wall -Wextra -Wpedantic -Wno-unused-command-line-argument
+LDFLAGS = -ldl -lreadline
 
-SRC_DIR = src
-OBJ_DIR = obj
+BUILD ?= release
 
-TARGET = glorp
+ifeq ($(BUILD),debug)
+	CFLAGS = -Wall -Wextra -Wpedantic -ggdb -DDEBUG
+	BINDIR = build/debug
+else ifeq ($(BUILD),release)
+	CLFAGS = -Wall -Wextra -Wpedantic -O2 -DNDEBUG
+	BINDIR = build/release
+else
+	$(error Invalid build type: $(BUILD))
+endif
 
-SRC_FILES = $(wildcard $(SRC_DIR)/*.c)
-OBJ_FILES = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC_FILES))
+SRC_DIR := src
+LIB_DIR := lib
+TEST_DIR := tests
+SRC := $(wildcard $(SRC_DIR)/*.c)
+OBJ := $(patsubst $(SRC_DIR)/%.c, $(BINDIR)/%.o, $(SRC))
+DEP := $(OBJ:.o=.d)
+TARGET := $(BINDIR)/glorp
+LIB_TARGET = $(LIB_DIR)/libglorp.a
 
-all: $(OBJ_FILES) $(TARGET)
+$(shell mkdir -p $(BINDIR))
 
-debug: CFLAGS += $(DEBUG_FLAGS)
-debug: all
+all: $(TARGET) $(LIB_TARGET)
 
-release: all
+$(TARGET): $(OBJ)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(LIB_TARGET): $(OBJ)
+	ar rcs $@ $^
 
-$(TARGET): $(OBJ_FILES)
-	$(CC) $(LDFLAGS) $^ -o $@
+$(BINDIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
-$(OBJ_DIR):
-	mkdir -p $(OBJ_DIR)
+test: $(TARGET)
+	ln -sf $(realpath $(TARGET)) $(TEST_DIR)
+	cd $(TEST_DIR) && ./run_tests.sh
 
 clean:
-	rm -rf $(OBJ_DIR) $(BIN_DIR)
+	rm -rf $(BINDIR)
+	rm -rf $(TARGET)
+	rm -rf $(LIB_TARGET)
