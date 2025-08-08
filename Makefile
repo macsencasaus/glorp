@@ -10,7 +10,7 @@ ifeq ($(BUILD),debug)
 	CFLAGS = -Wall -Wextra -Wpedantic -ggdb -DDEBUG
 	BINDIR = build/debug
 else ifeq ($(BUILD),release)
-	CLFAGS = -Wall -Wextra -Wpedantic -O2 -DNDEBUG
+	CFLAGS = -Wall -Wextra -Wpedantic -O2 -DNDEBUG
 	BINDIR = build/release
 else
 	$(error Invalid build type: $(BUILD))

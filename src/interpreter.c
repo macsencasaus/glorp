@@ -16,16 +16,16 @@ extern parser_error parser_err;
 #define BUF_SIZE 1024
 
 void interpret(const char *input, const glorp_options *selected_options) {
-    const char *filename = selected_options->file_name;
+    const char *filename = selected_options->file;
     const size_t n = strlen(input);
 
     lexer l;
     lexer_init(&l, filename, input, n);
 
-    if (selected_options->flags & LEX_FLAG) {
-        print_lexer_output(filename, input, n);
+    if (selected_options->lex) {
+        print_lexer_output(&l);
+        return;
     }
-    if (selected_options->flags & ONLY_LEX_FLAG) return;
 
     arena_init(&a);
 
@@ -39,12 +39,8 @@ void interpret(const char *input, const glorp_options *selected_options) {
         return;
     }
 
-    if (selected_options->flags & AST_FLAG) {
+    if (selected_options->ast) {
         print_ast(program);
-    }
-    if (selected_options->flags & ONLY_AST_FLAG) {
-        if (selected_options->flags & VERBOSE_FLAG)
-            arena_print_exprs();
         return;
     }
 
@@ -55,7 +51,7 @@ void interpret(const char *input, const glorp_options *selected_options) {
     environment_init(&env, NULL, &ht, 0);
     env.selected_options = selected_options;
 
-    add_cmdline_args(selected_options->args, selected_options->argc, &env);
+    add_cmdline_args(selected_options->args->items, selected_options->args->size, &env);
     add_builtins(&env);
 
     object obj;
@@ -65,7 +61,7 @@ void interpret(const char *input, const glorp_options *selected_options) {
         inspect_eval_error(filename, &eval_err);
     }
 
-    if (selected_options->flags & VERBOSE_FLAG) {
+    if (selected_options->verbose) {
         print_debug_info();
         print_ht_info(&ht);
     }
@@ -76,7 +72,7 @@ void interpret(const char *input, const glorp_options *selected_options) {
 
 bool interpret_with_env(const char *input, const glorp_options *selected_options, 
                         environment *env) {
-    const char *filename = selected_options->file_name;
+    const char *filename = selected_options->file;
     const size_t n = strlen(input);
 
     lexer l;

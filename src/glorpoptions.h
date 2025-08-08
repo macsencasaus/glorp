@@ -1,29 +1,19 @@
 #ifndef GLORP_OPTIONS_H
 #define GLORP_OPTIONS_H
 
+#include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
 
-typedef uint32_t glorp_flags;
-
-// clang-format off
-#define HELP_FLAG       (1 << 0)
-#define LEX_FLAG        (1 << 1)
-#define ONLY_LEX_FLAG   (1 << 2)
-#define AST_FLAG        (1 << 3)
-#define ONLY_AST_FLAG   (1 << 4)
-#define REPL_FLAG       (1 << 5)
-#define STDIN_FLAG      (1 << 6)
-#define VERBOSE_FLAG    (1 << 7)
-// clang-format on
+#include "argparse.h"
 
 typedef struct {
-    const char *file_name;
+    const char *file;
+    Argp_List *args;
 
-    char **args;
-    size_t argc;
-
-    glorp_flags flags;
+    bool lex : 1;
+    bool ast : 1;
+    bool repl : 1;
+    bool verbose : 1;
 } glorp_options;
 
 #endif  // OPTIONS_H

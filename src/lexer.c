@@ -265,22 +265,18 @@ start:
     return tok;
 }
 
-void print_lexer_output(const char *filename, const char *input, size_t n) {
-    lexer l;
-    lexer_init(&l, filename, input, n);
-
-    token tok = lexer_next_token(&l);
+void print_lexer_output(lexer *l) {
+    token tok = lexer_next_token(l);
     while (tok.type != TOKEN_TYPE_EOF) {
         printf("TOKEN type: %-10s literal: %-10.*s length: %lu\n",
                token_type_literals[tok.type], (int)tok.length, tok.literal,
                tok.length);
-
-        tok = lexer_next_token(&l);
+        tok = lexer_next_token(l);
     }
 }
 
 static void read_comment(lexer *l) {
-    for (; l->ch != '\n' && l->ch != 0 && l->ch != EOF; read_char(l));
+    for (; l->ch != '\n' && l->ch != 0; read_char(l));
     eat_whitespace(l);
 }
 

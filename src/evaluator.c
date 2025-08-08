@@ -865,7 +865,7 @@ static bool eval_import_expression(const expr *import_expr, environment *env, ob
 
         glorp_options new_options = *env->selected_options;
 
-        new_options.file_name = file_name;
+        new_options.file = file_name;
 
         CHECK_EVAL(interpret_with_env(file_contents, &new_options, env));
 
@@ -975,7 +975,7 @@ static bool assign_ident(const expr *ident, const object *rhs, const expr *paren
         *n_obj = new_obj;
     }
 
-    assert(env_set(env, key, key_length, new_obj, is_const));
+    env_set(env, key, key_length, new_obj, is_const);
     return true;
 }
 
@@ -1660,6 +1660,6 @@ void add_builtins(environment *env) {
         fn->builtin_param_count = entry->param_count;
         fn->builtin_fn = entry->fn;
 
-        assert(env_set(env, entry->name, strlen(entry->name), fn, true));
+        env_set(env, entry->name, strlen(entry->name), fn, true);
     }
 }

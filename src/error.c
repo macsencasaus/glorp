@@ -82,7 +82,7 @@ static void print_error_line(const token *tok) {
     const char *line = tok->literal - tok->col_number + 1;
 
     size_t line_length = 0;
-    for (const char *p = line; *p != '\n' && *p != 0 && *p != EOF; ++p)
+    for (const char *p = line; *p != '\n' && *p != 0; ++p)
         ++line_length;
 
     int length_before_err = tok->col_number - 1;
@@ -102,7 +102,7 @@ static void print_error_line_range(const token *start, const token *end) {
     const char *line = start->literal - start->col_number + 1;
 
     int line_length = 0;
-    for (const char *p = line; *p != '\n' && *p != 0 && *p != EOF; ++p)
+    for (const char *p = line; *p != '\n' && *p != 0; ++p)
         ++line_length;
 
     int length_before_err = start->col_number - 1;

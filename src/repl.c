@@ -1,6 +1,5 @@
 #include <assert.h>
-#include <readline/history.h>
-#include <readline/readline.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "arena.h"
@@ -9,6 +8,8 @@
 #include "glorpoptions.h"
 #include "lexer.h"
 #include "parser.h"
+#include "readline/history.h"
+#include "readline/readline.h"
 
 #define SB_IMPLEMENTATION
 #include "sb.h"
@@ -31,7 +32,7 @@ static inline bool parser_err_is_unexpected_eof(void) {
     return parser_err.tok.type == TOKEN_TYPE_EOF && parser_err.type == PARSER_ERROR_UNEXPECTED;
 }
 
-void start_repl(glorp_options *selected_options) {
+void start_repl(glorp_options *options) {
     printf("Welcome to glorp!\n");
 
     rl_bind_key('\t', rl_insert);
@@ -49,15 +50,15 @@ void start_repl(glorp_options *selected_options) {
 
     environment env;
     environment_init(&env, NULL, &ht, 0);
-    env.selected_options = selected_options;
+    env.selected_options = options;
 
-    add_cmdline_args(selected_options->args, selected_options->argc, &env);
+    add_cmdline_args(options->args->items, options->args->size, &env);
     add_builtins(&env);
 
     size_t line_number = 0;
 
-    bump_alloc ba;
-    ba_init(&ba);
+    bump_alloc line_alloc;
+    ba_init(&line_alloc);
 
     String_Builder in = {0};
     String_Builder out = {0};
@@ -94,16 +95,16 @@ void start_repl(glorp_options *selected_options) {
         add_history(in.store);
 
         size_t n = in.size;
-        char *cur_in = (char *)ba_malloc(&ba, n);
+        char *cur_in = (char *)ba_malloc(&line_alloc, n);
         memcpy(cur_in, in.store, in.size);
 
         lexer_init(&l, REPL_FILENAME, cur_in, n);
         l.line_number = line_number;
 
-        if (selected_options->flags & LEX_FLAG) {
-            print_lexer_output(REPL_FILENAME, line, n);
+        if (options->lex) {
+            print_lexer_output(&l);
+            continue;
         }
-        if (selected_options->flags & ONLY_LEX_FLAG) continue;
 
         parser_reset_lexer(&p, &l);
 
@@ -113,7 +114,7 @@ void start_repl(glorp_options *selected_options) {
                 // TODO: free old program
 
                 sb_pop_last(&in);
-                ba_free(&ba, n);
+                ba_free(&line_alloc, n);
                 cur_prompt = DOT_PROMPT;
 
                 continue;
@@ -125,18 +126,16 @@ void start_repl(glorp_options *selected_options) {
 
         sb_reset(&in);
 
-        if (selected_options->flags & AST_FLAG) {
+        if (options->verbose)
+            arena_print_exprs();
+
+        if (options->ast) {
             print_ast(program);
-        }
-        if (selected_options->flags & ONLY_AST_FLAG) {
-            if (selected_options->flags & VERBOSE_FLAG)
-                arena_print_exprs();
             continue;
         }
 
-        if (program->expressions.size == 0) {
+        if (program->expressions.size == 0)
             continue;
-        }
 
         object obj;
         if (eval(program, &env, &obj)) {
@@ -150,7 +149,7 @@ void start_repl(glorp_options *selected_options) {
             inspect_eval_error(REPL_FILENAME, &eval_err);
         }
 
-        if (selected_options->flags & VERBOSE_FLAG) {
+        if (options->verbose) {
             print_debug_info();
             print_ht_info(&ht);
         }
@@ -158,7 +157,7 @@ void start_repl(glorp_options *selected_options) {
 
     clear_history();
     sb_free(&in);
-    ba_destroy(&ba);
+    ba_destroy(&line_alloc);
     arena_destroy(&a);
     ht_destroy(&ht);
 }

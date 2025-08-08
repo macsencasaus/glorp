@@ -22,7 +22,7 @@ typedef struct {
 
 void lexer_init(lexer *l, const char *filename, const char *input, size_t n);
 token lexer_next_token(lexer *l);
-void print_lexer_output(const char *filename, const char *input, size_t n);
+void print_lexer_output(lexer *l);
 
 // Determines whether repl should read line again before parsing.
 // Handles open parens/brackets/braces and guards
