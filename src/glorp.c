@@ -15,7 +15,10 @@
 
 arena a;
 
+const char *program_name;
+
 int main(int argc, char *argv[]) {
+    program_name = argv[0];
     argp_init(argc, argv, "An interpreted scripting language!", /* default_help */ true);
 
     bool *lex = argp_flag_bool("l", "lex", "print lexer output then exit");

@@ -1,31 +1,32 @@
 .PHONY: all test clean
 
 CC = clang
-CFLAGS = -fPIC -Wall -Wextra -Wpedantic -Wno-unused-command-line-argument
+CFLAGS = -fPIC -Wall -Wextra -Wpedantic -Wno-unused-command-line-argument -MMD -MP
 LDFLAGS = -ldl -lreadline
 
-BUILD ?= release
+GLORP_BUILD ?= release
 
-ifeq ($(BUILD),debug)
-	CFLAGS = -Wall -Wextra -Wpedantic -ggdb -DDEBUG
-	BINDIR = build/debug
-else ifeq ($(BUILD),release)
-	CFLAGS = -Wall -Wextra -Wpedantic -O2 -DNDEBUG
-	BINDIR = build/release
+ifeq ($(GLORP_BUILD),debug)
+	CFLAGS += -ggdb -DDEBUG
+	BIN_DIR = build/debug
+else ifeq ($(GLORP_BUILD),release)
+	CFLAGS += -O2 -DNDEBUG
+	BIN_DIR = build/release
 else
-	$(error Invalid build type: $(BUILD))
+	$(error Invalid build type: $(GLORP_BUILD))
 endif
 
 SRC_DIR := src
 LIB_DIR := lib
 TEST_DIR := tests
+
 SRC := $(wildcard $(SRC_DIR)/*.c)
-OBJ := $(patsubst $(SRC_DIR)/%.c, $(BINDIR)/%.o, $(SRC))
+OBJ := $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRC))
 DEP := $(OBJ:.o=.d)
-TARGET := $(BINDIR)/glorp
+TARGET := $(BIN_DIR)/glorp
 LIB_TARGET = $(LIB_DIR)/libglorp.a
 
-$(shell mkdir -p $(BINDIR))
+$(shell mkdir -p $(BIN_DIR))
 
 all: $(TARGET) $(LIB_TARGET)
 
@@ -35,14 +36,17 @@ $(TARGET): $(OBJ)
 $(LIB_TARGET): $(OBJ)
 	ar rcs $@ $^
 
-$(BINDIR)/%.o: $(SRC_DIR)/%.c
+$(BIN_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+
+-include $(DEP)
 
 test: $(TARGET)
 	ln -sf $(realpath $(TARGET)) $(TEST_DIR)
 	cd $(TEST_DIR) && ./run_tests.sh
 
 clean:
-	rm -rf $(BINDIR)
-	rm -rf $(TARGET)
-	rm -rf $(LIB_TARGET)
+	rm -rf $(BIN_DIR)
+	rm -f $(TARGET)
+	rm -f $(LIB_TARGET)
+	rm -f $(DEP)
