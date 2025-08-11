@@ -113,3 +113,7 @@ map :: (list, f) ->
 __builtin_print("Hello, World!")
 
 ```
+
+## Dependencies
+
+- `readline`
