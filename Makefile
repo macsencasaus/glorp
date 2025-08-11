@@ -17,16 +17,17 @@ else
 endif
 
 SRC_DIR := src
-LIB_DIR := lib
+LIB_DIR := $(BIN_DIR)/lib
+DEP_DIR := $(BIN_DIR)/deps
 TEST_DIR := tests
 
 SRC := $(wildcard $(SRC_DIR)/*.c)
-OBJ := $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRC))
+OBJ := $(patsubst $(SRC_DIR)/%.c, $(DEP_DIR)/%.o, $(SRC))
 DEP := $(OBJ:.o=.d)
 TARGET := $(BIN_DIR)/glorp
 LIB_TARGET = $(LIB_DIR)/libglorp.a
 
-$(shell mkdir -p $(BIN_DIR))
+$(shell mkdir -p $(BIN_DIR)/deps $(BIN_DIR)/lib)
 
 all: $(TARGET) $(LIB_TARGET)
 
@@ -35,8 +36,9 @@ $(TARGET): $(OBJ)
 
 $(LIB_TARGET): $(OBJ)
 	ar rcs $@ $^
+	cp -r include $(BIN_DIR)
 
-$(BIN_DIR)/%.o: $(SRC_DIR)/%.c
+$(DEP_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
 -include $(DEP)
