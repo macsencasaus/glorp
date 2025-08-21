@@ -135,7 +135,7 @@ static void inspect_int(const object *obj, String_Builder *sb, bool from_print) 
 
 static void inspect_float(const object *obj, String_Builder *sb, bool from_print) {
     (void)from_print;
-    sb_appendf(sb, "%lf", obj->float_value);
+    sb_appendf(sb, "%g", obj->float_value);
 }
 
 static void inspect_function(const object *obj, String_Builder *sb, bool from_print) {
