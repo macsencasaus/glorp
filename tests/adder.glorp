@@ -6,3 +6,6 @@ plus_two :: create_adder(2)
 
 x = plus_two(3);
 y = plus_two(2);
+
+__builtin_println(x);
+__builtin_println(y);

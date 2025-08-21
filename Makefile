@@ -45,7 +45,7 @@ $(DEP_DIR)/%.o: $(SRC_DIR)/%.c
 
 test: $(TARGET)
 	ln -sf $(realpath $(TARGET)) $(TEST_DIR)
-	cd $(TEST_DIR) && ./run_tests.sh
+	cd $(TEST_DIR) && ./test.py
 
 clean:
 	rm -rf $(BIN_DIR)

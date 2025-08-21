@@ -1,4 +1,0 @@
-#!/bin/sh
-exec ./glorp -a --only-ast "$0"
-
-1 + 2
